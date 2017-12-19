@@ -44,14 +44,16 @@ Dict::Add('DE DE', 'German', 'Deutsch', array(
 		'ActionSlackNotification:standard' => 'Einfache Nachricht',
 		'ActionSlackNotification:attachment' => 'Attachment',
 
-		'Class:EventNotificationActionCallUrl' => 'Call-URL Event',
-		'Class:EventNotificationActionCallUrl+' => '',
-		'Class:EventNotificationActionCallUrl/Attribute:call_url' => 'aufgerufene URL',
-		'Class:EventNotificationActionCallUrl/Attribute:call_url+' => '',
-		'Class:EventNotificationActionCallUrl/Attribute:parameters' => 'Parameter',
-		'Class:EventNotificationActionCallUrl/Attribute:parameters+' => '',
-		'Class:EventNotificationActionCallUrl/Attribute:response' => 'Server Response',
-		'Class:EventNotificationActionCallUrl/Attribute:response+' => '',
+		'Class:EventNotificationSlackNotification' => 'Slack Event',
+		'Class:EventNotificationSlackNotification+' => '',
+		'Class:EventNotificationSlackNotification/Attribute:slack_url' => 'Slack URL',
+		'Class:EventNotificationSlackNotification/Attribute:slack_url+' => 'Aufgerufene Slack Webhook URL',
+		'Class:EventNotificationSlackNotification/Attribute:channel' => 'Channel',
+		'Class:EventNotificationSlackNotification/Attribute:channel+' => 'Angegebener Channel',
+		'Class:EventNotificationSlackNotification/Attribute:response' => 'Server Response',
+		'Class:EventNotificationSlackNotification/Attribute:response+' => '',
+		'Class:EventNotificationSlackNotification/Attribute:slackbot_name' => 'Botname',
+		'Class:EventNotificationSlackNotification/Attribute:slackbot_name+' => '',
 ));
 
 ?>

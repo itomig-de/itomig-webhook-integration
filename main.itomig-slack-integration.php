@@ -318,11 +318,11 @@ class ActionSlackNotification extends ActionNotification {
 			 	$oLog->Set ( 'slackbot_name', $sSlackBotName );
 		}
 		if($this->oSlackLog){
-			$this->oSlackLog->Info ( "CallUrl Action" );
+			$this->oSlackLog->Info ( "Slack Notification Action" );
 		}
 		if ($this->IsBeingTested ()) {
 			if($this->oSlackLog){
-				$this->oSlackLog->Info ( "CallUrl Action - TEST only" );
+				$this->oSlackLog->Info ( "Slack Notification Action - TEST only" );
 			}
 			if (isset ( $sText )) {
 				return "Call-URL TEST Status: OK";

@@ -44,14 +44,17 @@ Dict::Add('EN US', 'English', 'English', array(
 		'ActionSlackNotification:standard' => 'Basis Message',
 		'ActionSlackNotification:attachment' => 'Attachment',
 
-		'Class:EventNotificationActionCallUrl' => 'Call-URL Event',
-		'Class:EventNotificationActionCallUrl+' => '',
-		'Class:EventNotificationActionCallUrl/Attribute:call_url' => 'URL called',
-		'Class:EventNotificationActionCallUrl/Attribute:call_url+' => '',
-		'Class:EventNotificationActionCallUrl/Attribute:parameters' => 'Parameters',
-		'Class:EventNotificationActionCallUrl/Attribute:parameters+' => '',
-		'Class:EventNotificationActionCallUrl/Attribute:response' => 'Server Response',
-		'Class:EventNotificationActionCallUrl/Attribute:response+' => '',
+		'Class:EventNotificationSlackNotification' => 'Slack event',
+		'Class:EventNotificationSlackNotification+' => '',
+		'Class:EventNotificationSlackNotification/Attribute:slack_url' => 'Slack URL',
+		'Class:EventNotificationSlackNotification/Attribute:slack_url+' => 'called Slack Webhook URL',
+		'Class:EventNotificationSlackNotification/Attribute:channel' => 'Channel',
+		'Class:EventNotificationSlackNotification/Attribute:channel+' => 'called Channel',
+		'Class:EventNotificationSlackNotification/Attribute:response' => 'Server Response',
+		'Class:EventNotificationSlackNotification/Attribute:response+' => '',
+		'Class:EventNotificationSlackNotification/Attribute:slackbot_name' => 'Bot name',
+		'Class:EventNotificationSlackNotification/Attribute:slackbot_name+' => '',
+	
 ));
 
 ?>
