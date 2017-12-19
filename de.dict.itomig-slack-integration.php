@@ -7,6 +7,8 @@
  */
 
 Dict::Add('DE DE', 'German', 'Deutsch', array(
+		'Class:ActionSlackNotification' => 'Slack Benachrichtugung',
+		'Class:ActionSlackNotification+' => 'Sende Benachrichtugung an einen Slack Webhook',
 		'Class:ActionSlackNotification/Attribute:debug_trace' => 'Debug Trace',
 		'Class:ActionSlackNotification/Attribute:debug_trace+' => 'Informationen ins Log schreiben?',
 		'Class:ActionSlackNotification/Attribute:debug_trace/Value:yes' => 'Ja',
@@ -15,18 +17,6 @@ Dict::Add('DE DE', 'German', 'Deutsch', array(
 		'Class:ActionSlackNotification/Attribute:slack_url+' => '',
 		'Class:ActionSlackNotification/Attribute:parameters' => 'Parameter',
 		'Class:ActionSlackNotification/Attribute:parameters+' => '',
-		'Class:EventNotificationActionCallUrl' => 'Call-URL Event',
-		'Class:EventNotificationActionCallUrl+' => '',
-		'Class:EventNotificationActionCallUrl/Attribute:call_url' => 'aufgerufene URL',
-		'Class:EventNotificationActionCallUrl/Attribute:call_url+' => '',
-		'Class:EventNotificationActionCallUrl/Attribute:parameters' => 'Parameter',
-		'Class:EventNotificationActionCallUrl/Attribute:parameters+' => '',
-		'Class:EventNotificationActionCallUrl/Attribute:response' => 'Server Response',
-		'Class:EventNotificationActionCallUrl/Attribute:response+' => '',
-		'ActionSlackNotification:baseinfo' => 'Allgemeine Informationen',
-		'ActionSlackNotification:urlinfo' => 'Slack Verbindung',
-		'ActionSlackNotification:standard' => 'Einfache Nachricht',
-		'ActionSlackNotification:attachment' => 'Attachment',
 		'Class:ActionSlackNotification/Attribute:slack_url' => 'Slack URL',
 		'Class:ActionSlackNotification/Attribute:slack_url+' => 'Slack Webhook URL',
 		'Class:ActionSlackNotification/Attribute:channel' => 'Channel oder Person',
@@ -49,6 +39,19 @@ Dict::Add('DE DE', 'German', 'Deutsch', array(
 		'Class:ActionSlackNotification/Attribute:att_text+' => '',
 		'Class:ActionSlackNotification/Attribute:att_fallback' => 'Anhang Fallback',
 		'Class:ActionSlackNotification/Attribute:att_fallback+' => '',
+		'ActionSlackNotification:baseinfo' => 'Allgemeine Informationen',
+		'ActionSlackNotification:urlinfo' => 'Slack Verbindung',
+		'ActionSlackNotification:standard' => 'Einfache Nachricht',
+		'ActionSlackNotification:attachment' => 'Attachment',
+
+		'Class:EventNotificationActionCallUrl' => 'Call-URL Event',
+		'Class:EventNotificationActionCallUrl+' => '',
+		'Class:EventNotificationActionCallUrl/Attribute:call_url' => 'aufgerufene URL',
+		'Class:EventNotificationActionCallUrl/Attribute:call_url+' => '',
+		'Class:EventNotificationActionCallUrl/Attribute:parameters' => 'Parameter',
+		'Class:EventNotificationActionCallUrl/Attribute:parameters+' => '',
+		'Class:EventNotificationActionCallUrl/Attribute:response' => 'Server Response',
+		'Class:EventNotificationActionCallUrl/Attribute:response+' => '',
 ));
 
 ?>
