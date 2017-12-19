@@ -27,6 +27,7 @@ SetupWebPage::AddModule ( __FILE__, // Path to the current file, all other file 
 		),
 		'webservice' => array (),
 		'data.struct' => array (
+			'data.struct.actionslacknotification.xml',
 			// add your 'structure' definition XML files here,
 		),
 		'data.sample' => array (
