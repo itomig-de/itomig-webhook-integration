@@ -196,8 +196,13 @@ class ActionSlackNotification extends ActionNotification {
 		// MetaModel::Init_SetZListItems('advanced_search', array('name')); // Criteria of the advanced search form
 	}
 
+	//Custom log
 	private $oSlackLog;
 
+	/**
+	 * Checks whether debug trace is enabled
+	 * @return boolean True in case of enabled debug trace, false otherwise
+	 */
 	private function DebugTrace(){
 		$sDebugTrace = $this->Get('debug_trace');
 		if(isset($sDebugTrace) && ($sDebugTrace === 'yes' || $sDebugTrace === 'Ja')){
@@ -206,6 +211,11 @@ class ActionSlackNotification extends ActionNotification {
 		return false;
 	}
 	
+	/**
+	 * Execute when Action is called, Get fields, apply params and execute post request
+	 * @param oTrigger object TriggerObject which called the action
+	 * @param aContextArgs array Contect Arguments
+	 */
 	public function DoExecute($oTrigger, $aContextArgs) {
 		
 		if (MetaModel::IsLogEnabledNotification ()) {
@@ -255,6 +265,14 @@ class ActionSlackNotification extends ActionNotification {
 			$oLog->DBUpdate ();
 		}
 	}
+
+	/**
+	 * Helper function for DoExecute
+	 * @param oTrigger object TriggerObject which called the action
+	 * @param aContextArgs array Contect Arguments
+	 * @param oLog object reference to the Log Object for store information in EventNotification
+	 * @return String result
+	 */
 	protected function _DoExecute($oTrigger, $aContextArgs, &$oLog) {
 		if($this->oSlackLog){
 			$this->oSlackLog->Info ( "_DoExecute" );
@@ -311,7 +329,7 @@ class ActionSlackNotification extends ActionNotification {
 			} else {
 				return "Call-URL TEST Warning: Text is empty";
 			}
-		} else { // "im Einsatz"
+		} else { // "enabled"
 			try {
 				// issue http request (post)
 				if($this->oSlackLog){
@@ -335,7 +353,6 @@ class ActionSlackNotification extends ActionNotification {
 					&& ($sSendAttachment === 'yes' || $sSendAttachment === 'Ja')){
 					$att_params = array();
 					if (isset ( $sAttTitle )){
-						$sAttTitle = $this->$sAttTitle;
 						$att_params['title'] = $sAttTitle;
 					}
 					if (isset ( $sAttTitleLink )){
@@ -405,16 +422,18 @@ class ActionSlackNotification extends ActionNotification {
 		}
 	}
 	
-	/*
+	/**
 	 * read module settings to build the curl options and exec http post
+	 * @param url String URL to call
+	 * @param aParams array Parameter to for request
+	 * @return array response of the curl request
 	 */
 	private function curl_post($url, $aParams){
 
 		$postParam = array(
 			'payload' => json_encode($aParams)
 		);
-		//$sParameters = preg_replace ($sPattern, $sReplacement , $sParameters);
- 
+
 		//Initiate cURL.
 		$ch = curl_init($url);
 
@@ -472,35 +491,52 @@ class ActionSlackNotification extends ActionNotification {
 
 	protected $m_aSlackErrors; // array of strings explaining the issue
 
+	/**
+	 * Create a link to an opbejct by an OQL
+	 * @param sOqlAttCode String Attribute Code to the OQL Query
+	 * @param aArgs array Context Arguments
+	 * @return String link to the object or null
+	 */
 	private function GetObjectLink($sOqlAttCode, $aArgs){
 		$sOQL = $this->Get($sOqlAttCode);
-		if (strlen($sOQL) == '') return '';
+		if (!isset($sOQL) || strlen($sOQL) == '') return '';
 		try{
 			$oSearch = DBObjectSearch::FromOQL($sOQL);
 			$oSearch->AllowAllData();
 		}
 		catch (OQLException $e)
 		{
-			$this->m_aMailErrors[] = "query syntax error for OQL '$sOqlAttCode'";
-			return $e->getMessage();
+			if($this->oSlackLog){
+				$this->oSlackLog->Error("query syntax error for OQL '$sOqlAttCode': " . $e->getMessage());
+			}
+			return null;
 		}
 		$oSet = new DBObjectSet($oSearch, array() /* order */, $aArgs);
 		if($oSet->Count() > 1){
+			$this->oSlackLog->Warning("Multiple results for OQL '$sOqlAttCode'. Just link the first object.");
 			//Just Take first
 			$sClass = $oSet->GetClass();
 			$oObj = $oSet->Fetch();
 			return ApplicationContext::MakeObjectUrl($sClass, $oObj->GetKey(), null, true);
 		}
-		else{
+		else if ($oSet->Count() > 0){
 			$sClass = $oSet->GetClass();
 			$oObj = $oSet->Fetch();
 			return ApplicationContext::MakeObjectUrl($sClass, $oObj->GetKey(), null, true);
 		}
-
-
-
+		else{
+			if($this->oSlackLog){
+				$this->oSlackLog->Warning("No result for OQL '$sOqlAttCode'");
+			}
+			return null;
+		}
 	}
 
+	/**
+	 * Transform html to slack markdown language
+	 * @param sText String HTML text
+	 * @return String markdown text
+	 */
 	private function prepareTextForSlack($sText){
 		//convert html to slack markdown
 		if(!empty($sText)){
@@ -603,24 +639,4 @@ class EventNotificationSlackNotification extends EventNotification {
 	}
 }
 
-/*
- * Test function for server :
- *
- * <?php
- * echo "Testpage\n<br />";
- *
- * echo $_SERVER['REQUEST_URI']."\n<br />";
- *
- * $query = $_SERVER['QUERY_STRING']; // urlencoded query string from request-uri
- * $real = urldecode($query); // example: param1=Dé Winter&param2=DemoOrg
- *
- * echo "real: ".$real."\n<br />";
- *
- * parse_str($real, $params); // parse variables from string
- *
- * print_r($params); // Array ( [param1] => Dé Winter [org] => Demo )
- *
- * ?>
- *
- */
 ?>
