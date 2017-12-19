@@ -1,8 +1,6 @@
 <?php
 // Copyright (C) 2017 ITOMIG GmbH
 //
-// This file is part of iTop.
-//
 // iTop is free software; you can redistribute it and/or modify
 // it under the terms of the GNU Affero General Public License as published by
 // the Free Software Foundation, either version 3 of the License, or
@@ -50,6 +48,18 @@ class ActionSlackNotification extends ActionNotification {
 		MetaModel::Init_Params ( $aParams );
 		MetaModel::Init_InheritAttributes ();
 		
+		//Init Attributes
+		MetaModel::Init_AddAttribute( new AttributeEnum("debug_trace", 
+			array(
+				"allowed_values"=>new ValueSetEnum("yes,no"), 
+				"display_style"=>'select', 
+				"sql"=>'debug_trace', 
+				"default_value"=>'no', 
+				"is_null_allowed"=>false, 
+				"depends_on"=>array(), 
+				"always_load_in_tables"=>false
+		) ) );
+
 		MetaModel::Init_AddAttribute ( new AttributeURL ( "slack_url", array (
 				"allowed_values" => null,
 				"sql" => "slack_url",
@@ -84,7 +94,7 @@ class ActionSlackNotification extends ActionNotification {
 				"default_value" => null,
 				"is_null_allowed" => true,
 				"depends_on" => array () 
-		) ) ); //AttributeTemplateHTML
+		) ) );
 
 		MetaModel::Init_AddAttribute( new AttributeEnum("attachment", 
 			array(
@@ -134,9 +144,11 @@ class ActionSlackNotification extends ActionNotification {
 				"default_value" => null,
 				"is_null_allowed" => true,
 				"depends_on" => array () 
-		) ) ); //AttributeTemplateHTML
+		) ) );
 
-		// Display lists
+		// Init displays
+
+		// Attributes to be displayed for the complete details view
 		MetaModel::Init_SetZListItems ( 'details', array (
 			0 => 'trigger_list',
 			'col:col1' => array (
@@ -144,17 +156,18 @@ class ActionSlackNotification extends ActionNotification {
 					0 => 'name',
 					1 => 'description',
 					2 => 'status',
+					3 => 'debug_trace',
 				),
 				'fieldset:ActionSlackNotification:urlinfo' => array (
 					0 => 'slack_url',
 					1 => 'channel',
 					2 => 'slackbot_name',
 				),
-			),
-			'col:col2' => array(
 				'fieldset:ActionSlackNotification:standard' => array(
 					0 => 'text',
 				),
+			),
+			'col:col2' => array(
 				'fieldset:ActionSlackNotification:attachment' => array(
 					0 => 'attachment',
 					1 => 'att_title',
@@ -164,30 +177,37 @@ class ActionSlackNotification extends ActionNotification {
 					5 => 'att_fallback',
 				),
 			)		
-		) ); // Attributes to be displayed for the complete details
+		) );
+		// Attributes to be displayed for a list view
 		MetaModel::Init_SetZListItems ( 'list', array (
 				'name',
 				'status',
 				'slack_url',
 				'channel',
 				'slackbot_name', 
-		) ); // Attributes to be displayed for a list
-		     // Search criteria
+		) );
+		// Attributes used as criteriaa of the std search form
 		MetaModel::Init_SetZListItems ( 'standard_search', array (
 				'name',
 				'description',
 				'status',
 				'slack_url' 
-		) ); // Criteria of the std search form
-			     // MetaModel::Init_SetZListItems('advanced_search', array('name')); // Criteria of the advanced search form
+		) );
+		// MetaModel::Init_SetZListItems('advanced_search', array('name')); // Criteria of the advanced search form
 	}
-	
-	// background error handling here not necessary because action push URL only does
-	// synchroneous calls
+
+	private $oSlackLog;
+
+	private function DebugTrace(){
+		$sDebugTrace = $this->Get('debug_trace');
+		if(isset($sDebugTrace) && ($sDebugTrace === 'yes' || $sDebugTrace === 'Ja')){
+			return true;
+		}
+		return false;
+	}
 	
 	public function DoExecute($oTrigger, $aContextArgs) {
 		
-		// IssueLog::Info("DoExecute");
 		if (MetaModel::IsLogEnabledNotification ()) {
 			$oLog = new EventNotificationSlackNotification ();
 			if ($this->IsBeingTested ()) {
@@ -207,14 +227,22 @@ class ActionSlackNotification extends ActionNotification {
 		}
 		
 		try {
+			if($this->DebugTrace()){
+				$this->oSlackLog = new FileLog(APPROOT.'log/slackintegration.log');
+			}
+
 			$sRes = $this->_DoExecute ( $oTrigger, $aContextArgs, $oLog );
-			IssueLog::Info ( "_DoExecute returned:" . $sRes );
+			if($this->oSlackLog){
+				$this->oSlackLog->Info ( "_DoExecute returned:" . $sRes );
+			}
 			if ($this->IsBeingTested ()) {
 				$sPrefix = 'TEST  - ';
 			} else {
 				$sPrefix = '';
 			}
-			IssueLog::Info ( "message=" . $sPrefix . $sRes );
+			if($this->oSlackLog){
+				$this->oSlackLog->Info ( "message=" . $sPrefix . $sRes );
+			}
 			if ($oLog) {
 				$oLog->Set ( 'message', $sPrefix . $sRes );
 			}
@@ -228,7 +256,9 @@ class ActionSlackNotification extends ActionNotification {
 		}
 	}
 	protected function _DoExecute($oTrigger, $aContextArgs, &$oLog) {
-		IssueLog::Info ( "_DoExecute" );
+		if($this->oSlackLog){
+			$this->oSlackLog->Info ( "_DoExecute" );
+		}
 		
 		$sPreviousUrlMaker = ApplicationContext::SetUrlMakerClass ();
 		
@@ -269,10 +299,13 @@ class ActionSlackNotification extends ActionNotification {
 			if (isset ( $sSlackBotName ))
 			 	$oLog->Set ( 'slackbot_name', $sSlackBotName );
 		}
-		
-		IssueLog::Info ( "CallUrl Action" );
+		if($this->oSlackLog){
+			$this->oSlackLog->Info ( "CallUrl Action" );
+		}
 		if ($this->IsBeingTested ()) {
-			IssueLog::Info ( "CallUrl Action - TEST only" );
+			if($this->oSlackLog){
+				$this->oSlackLog->Info ( "CallUrl Action - TEST only" );
+			}
 			if (isset ( $sText )) {
 				return "Call-URL TEST Status: OK";
 			} else {
@@ -281,7 +314,9 @@ class ActionSlackNotification extends ActionNotification {
 		} else { // "im Einsatz"
 			try {
 				// issue http request (post)
-				IssueLog::Info ('Starting slack notification:');
+				if($this->oSlackLog){
+					$this->oSlackLog->Info ('Starting slack notification:');
+				}
 
 				$slackData = array();
 				$slackData['mrkdwn'] = true;
@@ -320,8 +355,9 @@ class ActionSlackNotification extends ActionNotification {
 					}
 					$slackData['attachments'][] = $att_params;
 				}
-
-				IssueLog::Info ("Slack Data: \n". print_r($slackData, true));
+				if($this->oSlackLog){
+					$this->oSlackLog->Info ("Slack Data: \n". print_r($slackData, true));
+				}
 
 				$aResult = $this->curl_post($sCallSlack,$slackData);
 				
@@ -330,8 +366,9 @@ class ActionSlackNotification extends ActionNotification {
 				//                this will be reported in the variable $aResult ['status'] != 200
 				//     2. curl cannot execute the post-statement, for example "SSL Error"
 				//                this will be reported as the $aResult ['errno'] != 0
-				
-				IssueLog::Info ( "curl err=" . $aResult ['errno'] . " \n err-msg=" . $aResult ['errmsg'] );
+				if($this->oSlackLog){
+					$this->oSlackLog->Info ( "curl err=" . $aResult ['errno'] . " \n err-msg=" . $aResult ['errmsg'] );
+				}
 				
 				if (! is_null ( $oLog )) {
 					if (($aResult ['errno'] == 0) && ($aResult ['status'] == 200)) {
@@ -360,7 +397,9 @@ class ActionSlackNotification extends ActionNotification {
 					}
 				}
 			} catch ( Exception $e ) {
-				IssueLog::Error ( "ERROR: " . $e->getMessage () );
+				if($this->oSlackLog){
+					$this->oSlackLog->Error ( "ERROR: " . $e->getMessage () );
+				}
 				return "Call-Slack ERROR: " . $e->getMessage ();
 			}
 		}
@@ -413,7 +452,9 @@ class ActionSlackNotification extends ActionNotification {
 		// Check for errors and display the error message
 		if ($iErrno = curl_errno ( $ch )) {
 			$sErrMessage = curl_error ( $ch );
-			IssueLog::Error ( "cURL error ({$iErrno}):\n {$sErrMessage}" );
+			if($this->oSlackLog){
+				$this->oSlackLog->Error ( "cURL error ({$iErrno}):\n {$sErrMessage}" );
+			}
 			$aResult->Errno = $iErrno;
 			$aResult->ErrMessage = $sErrMessage;
 		}

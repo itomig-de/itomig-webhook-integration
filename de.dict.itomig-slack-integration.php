@@ -7,6 +7,10 @@
  */
 
 Dict::Add('DE DE', 'German', 'Deutsch', array(
+		'Class:ActionSlackNotification/Attribute:debug_trace' => 'Debug Trace',
+		'Class:ActionSlackNotification/Attribute:debug_trace+' => 'Informationen ins Log schreiben?',
+		'Class:ActionSlackNotification/Attribute:debug_trace/Value:yes' => 'Ja',
+		'Class:ActionSlackNotification/Attribute:debug_trace/Value:no' => 'Nein',
 		'Class:ActionSlackNotification/Attribute:slack_url' => 'Slack URL',
 		'Class:ActionSlackNotification/Attribute:slack_url+' => '',
 		'Class:ActionSlackNotification/Attribute:parameters' => 'Parameter',

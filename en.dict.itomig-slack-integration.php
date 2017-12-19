@@ -7,6 +7,10 @@
  */
 
 Dict::Add('EN US', 'English', 'English', array(
+		'Class:ActionSlackNotification/Attribute:debug_trace' => 'Debug trace',
+		'Class:ActionSlackNotification/Attribute:debug_trace+' => 'store log information for debug purpose?',
+		'Class:ActionSlackNotification/Attribute:debug_trace/Value:yes' => 'yes',
+		'Class:ActionSlackNotification/Attribute:debug_trace/Value:no' => 'no',
 		'Class:ActionSlackNotification/Attribute:slack_url' => 'Slack URL',
 		'Class:ActionSlackNotification/Attribute:slack_url+' => '',
 		'Class:ActionSlackNotification/Attribute:parameters' => 'Parameters',
@@ -33,8 +37,8 @@ Dict::Add('EN US', 'English', 'English', array(
 		'Class:ActionSlackNotification/Attribute:text+' => 'Simple text with params',
 		'Class:ActionSlackNotification/Attribute:attachment' => 'Use an attachment?',
 		'Class:ActionSlackNotification/Attribute:attachment+' => '',
-		'Class:ActionSlackNotification/Attribute:attachment/Value:yes' => 'Yes',
-		'Class:ActionSlackNotification/Attribute:attachment/Value:no' => 'No',
+		'Class:ActionSlackNotification/Attribute:attachment/Value:yes' => 'yes',
+		'Class:ActionSlackNotification/Attribute:attachment/Value:no' => 'no',
 		'Class:ActionSlackNotification/Attribute:att_title' => 'Attachment title',
 		'Class:ActionSlackNotification/Attribute:att_title+' => '',
 		'Class:ActionSlackNotification/Attribute:att_title_link' => 'Attachment link',
