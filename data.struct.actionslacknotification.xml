@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Set>
+<ActionSlackNotification alias="ActionSlackNotification" id="101">
+<name>Send ticket information to Slack</name>
+<description/>
+<status>disabled</status>
+<debug_trace>no</debug_trace>
+<slack_url>https://hooks.slack.com/services/T00000000/B00000000/XXXXXXXXXXXXXXXXXXXXXXXX</slack_url>
+<channel>#general</channel>
+<slackbot_name>iTop</slackbot_name>
+<text>&lt;p&gt;A new Ticket has been created: $this-&gt;hyperlink()$&lt;/p&gt; &lt;p&gt;&lt;strong&gt;Organzation:&lt;/strong&gt; $this-&gt;org_name$&lt;/p&gt; &lt;p&gt;&lt;strong&gt;Title:&lt;/strong&gt; $this-&gt;title$&lt;/p&gt; &lt;p&gt;&lt;strong&gt;Description:&lt;/strong&gt; $this-&gt;description$&lt;/p&gt; &lt;p&gt; &lt;/p&gt;</text>
+<attachment>yes</attachment>
+<att_fallback>&lt;p&gt;$this-&gt;head_html(private_log)$&lt;/p&gt;</att_fallback>
+<att_title>Last private log entry</att_title>
+<att_title_link/>
+<att_color>#E87C1E</att_color>
+<att_text>&lt;p&gt;$this-&gt;head_html(private_log)$&lt;/p&gt;</att_text>
+</ActionSlackNotification>
+</Set>
