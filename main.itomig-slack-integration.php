@@ -428,11 +428,14 @@ class ActionSlackNotification extends ActionNotification {
 	 * @param aParams array Parameter to for request
 	 * @return array response of the curl request
 	 */
-	private function curl_post($url, $aParams){
-
-		$postParam = array(
-			'payload' => json_encode($aParams)
-		);
+	public static function curl_post($url, $aParams, $sync = false){
+		if(!$sync){
+			//TODO Push to stack
+		}
+		else{
+			$postParam = array(
+				'payload' => json_encode($aParams)
+			);
 
 		//Initiate cURL.
 		$ch = curl_init($url);
@@ -636,6 +639,65 @@ class EventNotificationSlackNotification extends EventNotification {
 		// Search criteria
 			     // MetaModel::Init_SetZListItems('standard_search', array('name')); // Criteria of the std search form
 			     // MetaModel::Init_SetZListItems('advanced_search', array('name')); // Criteria of the advanced search form
+	}
+}
+
+class AsyncSendSlack extends AsyncTask
+{
+	public static function Init()
+	{
+		$aParams = array
+		(
+			"category" => "core/cmdb",
+			"key_type" => "autoincrement",
+			"name_attcode" => "created",
+			"state_attcode" => "",
+			"reconc_keys" => array(),
+			"db_table" => "priv_async_send_email",
+			"db_key_field" => "id",
+			"db_finalclass_field" => "",
+			"display_template" => "",
+		);
+		MetaModel::Init_Params($aParams);
+		MetaModel::Init_InheritAttributes();
+
+		//MetaModel::Init_AddAttribute(new AttributeInteger("version", array("allowed_values"=>null, "sql"=>"version", "default_value"=>Email::ORIGINAL_FORMAT, "is_null_allowed"=>false, "depends_on"=>array())));
+		MetaModel::Init_AddAttribute(new AttributeURL("slack_url", array("allowed_values"=>null, "sql"=>"slack_url", "default_value"=>null, "is_null_allowed"=>false, "depends_on"=>array())));
+		MetaModel::Init_AddAttribute(new AttributeLongText("payload", array("allowed_values"=>null, "sql"=>"payload", "default_value"=>null, "is_null_allowed"=>false, "depends_on"=>array())));
+
+	}
+
+	static public function AddToQueue($sSlackURL, $sSlackPayload, $oLog)
+	{
+		$oNew = MetaModel::NewObject(__class__);
+		if ($oLog)
+		{
+			$oNew->Set('event_id', $oLog->GetKey());
+		}
+		$oNew->Set('slack_url', $sSlackURL);
+		$oNew->Set('payload', $sSlackPayload);
+		//$oNew->Set('version', 1);		
+		$oNew->DBInsert();
+	}
+
+	public function DoProcess()
+	{
+		$sSlackURL = $this->Get('slack_url');
+		$sSlackPayload = $this->Get('payload');
+
+		$iRes = $oEMail->Send($aIssues, true /* force synchro !!!!! */);
+		
+		switch ($iRes)
+		{
+		case EMAIL_SEND_OK:
+			return "Sent";
+
+		case EMAIL_SEND_PENDING:
+			return "Bug - the email should be sent in synchronous mode";
+
+		case EMAIL_SEND_ERROR:
+			return "Failed: ".implode(', ', $aIssues);
+		}
 	}
 }
 
