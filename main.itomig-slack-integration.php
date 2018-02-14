@@ -345,7 +345,7 @@ abstract class ActionWebhookNotification extends ActionNotification {
 				}
 
 				// issue http request (post)
-				$aResult = $this->curl_post($sCallWebhook,$slackData);
+				$aResult = $this->curl_post($sCallWebhook,$aPostParams);
 				
 				// there are two possible types of errors:
 				//     1. the server returns an error, for example (404, not found)
@@ -426,7 +426,13 @@ abstract class ActionWebhookNotification extends ActionNotification {
 		//Tell cURL that we want to send a POST request.
 		curl_setopt($ch, CURLOPT_POST, 1);	 
 		//Attach our encoded JSON string to the POST fields.
-		curl_setopt($ch, CURLOPT_POSTFIELDS, $postParam);		 
+		curl_setopt($ch, CURLOPT_POSTFIELDS, $postParam);
+		// Set Application type to json
+		curl_setopt($ch, CURLOPT_HTTPHEADER, array(
+			'Content-Type: application/json'
+		));
+
+
 		//Execute the request
 		$sContent = curl_exec($ch);
 
@@ -586,12 +592,8 @@ class EventNotificationWebhookNotification extends EventNotification {
 			     // MetaModel::Init_SetZListItems('advanced_search', array('name')); // Criteria of the advanced search form
 	}
 }
-/**
- * A user defined action, to customize the application
- *
- * @package itomig-slack-integration
- *         
- */
+
+
 class ActionSlackNotification extends ActionWebhookNotification {
 	public static function Init() {
 		$aParams = array (
@@ -702,10 +704,7 @@ class ActionSlackNotification extends ActionWebhookNotification {
 			}
 			$slackData['attachments'][] = $att_params;
 		}
-
-		return array(
-			'payload' => json_encode($slackData)
-		);
+		return json_encode($slackData);
 	}
 
 	/**
@@ -731,6 +730,147 @@ class ActionSlackNotification extends ActionWebhookNotification {
 	        preg_match_all('/<a href=\"(.*?)\">(.*?)<\/a>/i', $sText, $res);
 	        for($i = 0; $i < count($res[0]); $i++) {
 	            $sText = str_replace($res[0][$i], '<'.$res[1][$i].'|'.$res[2][$i].'>', $sText);
+	        }
+	    }
+		return $sText;
+	}
+
+}
+
+class ActionRocketChatNotification extends ActionWebhookNotification {
+	public static function Init() {
+		$aParams = array (
+				"category" => "core/cmdb,application",
+				"key_type" => "autoincrement",
+				"name_attcode" => "name",
+				"state_attcode" => "",
+				"reconc_keys" => array (
+						'name' 
+				),
+				"db_table" => "priv_rocket_notification",
+				"db_key_field" => "id",
+				"db_finalclass_field" => "",
+				"display_template" => "" 
+		);
+		MetaModel::Init_Params ( $aParams );
+		MetaModel::Init_InheritAttributes ();
+		
+		//Init Attributes
+
+		// Init displays
+
+		// Attributes to be displayed for the complete details view
+		MetaModel::Init_SetZListItems ( 'details', array (
+			0 => 'trigger_list',
+			'col:col1' => array (
+				'fieldset:ActionWebhookNotification:baseinfo' => array (
+					0 => 'name',
+					1 => 'description',
+					2 => 'status',
+					3 => 'debug_trace',
+				),
+				'fieldset:ActionWebhookNotification:urlinfo' => array (
+					0 => 'webhook_url',
+					1 => 'channel',
+					2 => 'bot_alias',
+				),
+				'fieldset:ActionWebhookNotification:standard' => array(
+					0 => 'text',
+				),
+			),
+			'col:col2' => array(
+				'fieldset:ActionWebhookNotification:attachment' => array(
+					0 => 'attachment',
+					1 => 'att_title',
+					2 => 'att_title_link',
+					3 => 'att_color',
+					4 => 'att_text',
+					5 => 'att_fallback',
+				),
+			)		
+		) );
+		// Attributes to be displayed for a list view
+		MetaModel::Init_SetZListItems ( 'list', array (
+				'name',
+				'status',
+				'webhook_url',
+				'channel',
+				'bot_alias', 
+		) );
+		// Attributes used as criteriaa of the std search form
+		MetaModel::Init_SetZListItems ( 'standard_search', array (
+				'name',
+				'description',
+				'status',
+				'webhook_url' 
+		) );
+		// MetaModel::Init_SetZListItems('advanced_search', array('name')); // Criteria of the advanced search form
+	}
+
+	protected function preparePostData($aPostParams_raw){
+		$rocketData = array();
+		//$rocketData['mrkdwn'] = true;
+
+		if (isset ( $aPostParams_raw['sText'] )){
+			$aPostParams_raw['sText'] = $this->prepareTextForRocket($aPostParams_raw['sText']);
+			$rocketData['text'] = $aPostParams_raw['sText'];
+		}
+		if (isset ( $aPostParams_raw['sWebhookChannel'] )){
+			$rocketData['channel'] = $aPostParams_raw['sWebhookChannel'];
+		}
+		if (isset ( $aPostParams_raw['sBotAlias'] )){
+			$rocketData['username'] = $aPostParams_raw['sBotAlias'];
+		}
+		if (isset ( $aPostParams_raw['sSendAttachment'] ) 
+			&& ($aPostParams_raw['sSendAttachment'] === 'yes' || $aPostParams_raw['sSendAttachment'] === 'Ja')){
+			$att_params = array();
+			if (isset ( $aPostParams_raw['sAttTitle'] )){
+				$att_params['title'] = $aPostParams_raw['sAttTitle'];
+			}
+			if (isset ( $aPostParams_raw['sAttTitleLink'] )){
+				$att_params['title_link'] = $aPostParams_raw['sAttTitleLink'];
+			}
+			if (isset ( $aPostParams_raw['sAttColor'] )){
+				$att_params['color'] = $aPostParams_raw['sAttColor'];
+			}
+			if (isset ( $aPostParams_raw['sAttText'] )){
+				$aPostParams_raw['sAttText'] = $this->prepareTextForRocket($aPostParams_raw['sAttText']);
+				$att_params['text'] = $aPostParams_raw['sAttText'];
+				//$att_params['mrkdwn_in'] = array("text");
+			}
+			if (isset ( $aPostParams_raw['sAttFallback'] )){
+				$aPostParams_raw['sAttFallback'] = $this->prepareTextForRocket($aPostParams_raw['sAttFallback']);
+				$att_params['fallback'] = $aPostParams_raw['sAttFallback'];
+			}
+			$rocketData['attachments'][] = $att_params;
+		}
+
+		return json_encode($rocketData);
+	}
+
+	/**
+	 * Transform html to rocket markdown language
+	 * @param sText String HTML text
+	 * @return String markdown text
+	 */
+	private function prepareTextForRocket($sText){
+		//convert html to slack markdown
+		if(!empty($sText)){
+			$sText = strip_tags($sText, '<h1><h2><h3><br><strong><em><del><li><code><pre><a></a>');
+	        $sText = str_replace(array('<br />', '<br>'), "\n", $sText);
+	        $sText = str_replace(array('<h1>', '</h1>'), array('**', '**'), $sText);
+	        $sText = str_replace(array('<h2>', '</h2>'), array('**', '**'), $sText);
+	        $sText = str_replace(array('<h3>', '</h3>'), array('**', '**'), $sText);
+	        $sText = str_replace(array('<strong>', '</strong>'), array('**', '**'), $sText);
+	        $sText = str_replace(array('<em>', '</em>'), array('__', '__'), $sText);
+	        $sText = str_replace(array('<del>', '</del>'), array('~', '~'), $sText);
+	        $sText = str_replace(array('<li>', '</li>'), array('* ', ''), $sText);
+	        $sText = str_replace(array('<code>', '</code>'), array('`', '`'), $sText);
+	        $sText = str_replace(array('<pre>', '</pre>'), array('`', '`'), $sText);
+
+	        preg_match_all('/<a href=\"(.*?)\">(.*?)<\/a>/i', $sText, $res);
+	        for($i = 0; $i < count($res[0]); $i++) {
+	            $sText = str_replace($res[0][$i], '['.$res[2][$i].']('.$res[1][$i].')', $sText);
 	        }
 	    }
 		return $sText;
