@@ -24,13 +24,16 @@ require_once (APPROOT . '/core/asynctask.class.inc.php');
 require_once (APPROOT . '/core/email.class.inc.php');
 require_once (APPROOT . '/core/action.class.inc.php');
 
+
+
+
 /**
  * A user defined action, to customize the application
  *
  * @package itomig-slack-integration
  *         
  */
-class ActionSlackNotification extends ActionNotification {
+abstract class ActionWebhookNotification extends ActionNotification {
 	public static function Init() {
 		$aParams = array (
 				"category" => "core/cmdb,application",
@@ -40,7 +43,7 @@ class ActionSlackNotification extends ActionNotification {
 				"reconc_keys" => array (
 						'name' 
 				),
-				"db_table" => "priv_salck_notification",
+				"db_table" => "priv_webhook_notify",
 				"db_key_field" => "id",
 				"db_finalclass_field" => "",
 				"display_template" => "" 
@@ -60,14 +63,13 @@ class ActionSlackNotification extends ActionNotification {
 				"always_load_in_tables"=>false
 		) ) );
 
-		MetaModel::Init_AddAttribute ( new AttributeURL ( "slack_url", array (
+		MetaModel::Init_AddAttribute ( new AttributeURL ( "webhook_url", array (
 				"allowed_values" => null,
-				"sql" => "slack_url",
+				"sql" => "webhook_url",
 				"default_value" => null,
 				"target" => "_blank",
 				"is_null_allowed" => false,
-				"depends_on" => array (),
-				"validation_pattern" => "^(https\://hooks\.slack\.com/services/.*)$"
+				"depends_on" => array ()
 		) ) );
 
 		MetaModel::Init_AddAttribute ( new AttributeString ( "channel", array (
@@ -79,9 +81,9 @@ class ActionSlackNotification extends ActionNotification {
 				"always_load_in_tables"=>false 
 		) ) );
 
-		MetaModel::Init_AddAttribute ( new AttributeString ( "slackbot_name", array (
+		MetaModel::Init_AddAttribute ( new AttributeString ( "bot_alias", array (
 				"allowed_values" => null,
-				"sql" => "slackbot_name",
+				"sql" => "bot_alias",
 				"default_value" => "",
 				"is_null_allowed" => true,
 				"depends_on" => array (),
@@ -107,6 +109,7 @@ class ActionSlackNotification extends ActionNotification {
 				"always_load_in_tables"=>false
 		) ) );
 
+		//Fallback bei Rocketchat?
 		MetaModel::Init_AddAttribute (new AttributeTemplateHTML("att_fallback", array(
 				"allowed_values"=>null, 
 				"sql"=>"att_fallback", 
@@ -152,23 +155,23 @@ class ActionSlackNotification extends ActionNotification {
 		MetaModel::Init_SetZListItems ( 'details', array (
 			0 => 'trigger_list',
 			'col:col1' => array (
-				'fieldset:ActionSlackNotification:baseinfo' => array (
+				'fieldset:ActionWebhookNotification:baseinfo' => array (
 					0 => 'name',
 					1 => 'description',
 					2 => 'status',
 					3 => 'debug_trace',
 				),
-				'fieldset:ActionSlackNotification:urlinfo' => array (
-					0 => 'slack_url',
+				'fieldset:ActionWebhookNotification:urlinfo' => array (
+					0 => 'webhook_url',
 					1 => 'channel',
-					2 => 'slackbot_name',
+					2 => 'bot_alias',
 				),
-				'fieldset:ActionSlackNotification:standard' => array(
+				'fieldset:ActionWebhookNotification:standard' => array(
 					0 => 'text',
 				),
 			),
 			'col:col2' => array(
-				'fieldset:ActionSlackNotification:attachment' => array(
+				'fieldset:ActionWebhookNotification:attachment' => array(
 					0 => 'attachment',
 					1 => 'att_title',
 					2 => 'att_title_link',
@@ -181,29 +184,31 @@ class ActionSlackNotification extends ActionNotification {
 		// Attributes to be displayed for a list view
 		MetaModel::Init_SetZListItems ( 'list', array (
 				'name',
+				'finalclass',
 				'status',
-				'slack_url',
+				'webhook_url',
 				'channel',
-				'slackbot_name', 
+				'bot_alias', 
 		) );
 		// Attributes used as criteriaa of the std search form
 		MetaModel::Init_SetZListItems ( 'standard_search', array (
 				'name',
+				'finalclass',
 				'description',
 				'status',
-				'slack_url' 
+				'webhook_url' 
 		) );
 		// MetaModel::Init_SetZListItems('advanced_search', array('name')); // Criteria of the advanced search form
 	}
 
 	//Custom log
-	private $oSlackLog;
+	protected $oWebhookLog;
 
 	/**
 	 * Checks whether debug trace is enabled
 	 * @return boolean True in case of enabled debug trace, false otherwise
 	 */
-	private function DebugTrace(){
+	protected function DebugTrace(){
 		$sDebugTrace = $this->Get('debug_trace');
 		if(isset($sDebugTrace) && ($sDebugTrace === 'yes' || $sDebugTrace === 'Ja')){
 			return true;
@@ -219,7 +224,7 @@ class ActionSlackNotification extends ActionNotification {
 	public function DoExecute($oTrigger, $aContextArgs) {
 		
 		if (MetaModel::IsLogEnabledNotification ()) {
-			$oLog = new EventNotificationSlackNotification ();
+			$oLog = new EventNotificationWebhookNotification ();
 			if ($this->IsBeingTested ()) {
 				$oLog->Set ( 'message', 'TEST - Notifcation pending ' );
 			} else {
@@ -238,20 +243,20 @@ class ActionSlackNotification extends ActionNotification {
 		
 		try {
 			if($this->DebugTrace()){
-				$this->oSlackLog = new FileLog(APPROOT.'log/slackintegration.log');
+				$this->oWebhookLog = new FileLog(APPROOT.'log/webhookintegration.log');
 			}
 
 			$sRes = $this->_DoExecute ( $oTrigger, $aContextArgs, $oLog );
-			if($this->oSlackLog){
-				$this->oSlackLog->Info ( "_DoExecute returned:" . $sRes );
+			if($this->oWebhookLog){
+				$this->oWebhookLog->Info ( "_DoExecute returned:" . $sRes );
 			}
 			if ($this->IsBeingTested ()) {
 				$sPrefix = 'TEST  - ';
 			} else {
 				$sPrefix = '';
 			}
-			if($this->oSlackLog){
-				$this->oSlackLog->Info ( "message=" . $sPrefix . $sRes );
+			if($this->oWebhookLog){
+				$this->oWebhookLog->Info ( "message=" . $sPrefix . $sRes );
 			}
 			if ($oLog) {
 				$oLog->Set ( 'message', $sPrefix . $sRes );
@@ -273,32 +278,31 @@ class ActionSlackNotification extends ActionNotification {
 	 * @param oLog object reference to the Log Object for store information in EventNotification
 	 * @return String result
 	 */
-	protected function _DoExecute($oTrigger, $aContextArgs, &$oLog) {
-		if($this->oSlackLog){
-			$this->oSlackLog->Info ( "_DoExecute" );
+	private function _DoExecute($oTrigger, $aContextArgs, &$oLog) {
+		if($this->oWebhookLog){
+			$this->oWebhookLog->Info ( "_DoExecute" );
 		}
 		
 		$sPreviousUrlMaker = ApplicationContext::SetUrlMakerClass ();
 		
 		// Get URL
-		$sCallSlack = $this->Get ( "slack_url" ); // is always set because mandatory field
-		
+		$sCallWebhook = $this->Get ( "webhook_url" ); // is always set because mandatory field
+		$aPostParams_raw = array();
 		try {
 			$bRes = false; // until we do succeed in sending notification
 
 			// substitude iTop Variables in parameters
-			$sSlackChannel = $this->Get('channel');
-			$sSlackBotName = $this->Get('slackbot_name');
-			$sSendAttachment = $this->Get('attachment');
-
-			$sText = MetaModel::ApplyParams ( $this->Get ( "text" ), $aContextArgs );
-			$sAttTitle = MetaModel::ApplyParams ( $this->Get ( "att_title" ), $aContextArgs );
-			$sAttTitleLink = $this->GetObjectLink('att_title_link', $aContextArgs);
-			$sAttColor = $this->Get('att_color');
-			$sAttText = MetaModel::ApplyParams ( $this->Get ( "att_text" ), $aContextArgs );
-			$sAttFallback = MetaModel::ApplyParams ( $this->Get ( "att_fallback" ), $aContextArgs );
+			$aPostParams_raw['sWebhookChannel'] = $this->Get('channel');
+			$aPostParams_raw['sBotAlias'] = $this->Get('bot_alias');
+			$aPostParams_raw['sSendAttachment'] = $this->Get('attachment');
+			$aPostParams_raw['sText'] = MetaModel::ApplyParams ( $this->Get ( "text" ), $aContextArgs );
+			$aPostParams_raw['sAttTitle'] = MetaModel::ApplyParams ( $this->Get ( "att_title" ), $aContextArgs );
+			$aPostParams_raw['sAttTitleLink'] = $this->GetObjectLink('att_title_link', $aContextArgs);
+			$aPostParams_raw['sAttColor'] = $this->Get('att_color');
+			$aPostParams_raw['sAttText'] = MetaModel::ApplyParams ( $this->Get ( "att_text" ), $aContextArgs );
+			$aPostParams_raw['sAttFallback'] = MetaModel::ApplyParams ( $this->Get ( "att_fallback" ), $aContextArgs );
 			
-			$oObj = $aContextArgs ['this->object()'];
+			//$oObj = $aContextArgs ['this->object()'];
 		} catch ( Exception $e ) {
 			ApplicationContext::SetUrlMakerClass ( $sPreviousUrlMaker );
 			throw $e;
@@ -309,82 +313,47 @@ class ActionSlackNotification extends ActionNotification {
 			// Note: we have to secure this because those values are calculated
 			// inside the try statement, and we would like to keep track of as
 			// many data as we could while some variables may still be undefined
-			
-			$oLog->Set ( 'slack_url', $sCallSlack );
-			
-			if (isset ( $sSlackChannel ))
-			 	$oLog->Set ( 'channel', $sSlackChannel );
-			if (isset ( $sSlackBotName ))
-			 	$oLog->Set ( 'slackbot_name', $sSlackBotName );
+			$oLog->Set ( 'webhook_url', $sCallWebhook );
+			$oLog->Set ( 'webhook_finalclass', $this->Get('finalclass') );
+			if (isset ( $aPostParams_raw['sWebhookChannel'] ))
+			 	$oLog->Set ( 'channel', $aPostParams_raw['sWebhookChannel'] );
+			if (isset ( $aPostParams_raw['sBotAlias'] ))
+			 	$oLog->Set ( 'bot_alias', $aPostParams_raw['sBotAlias'] );
 		}
-		if($this->oSlackLog){
-			$this->oSlackLog->Info ( "Slack Notification Action" );
+		if($this->oWebhookLog){
+			$this->oWebhookLog->Info ( "Webhook Notification Action" );
 		}
 		if ($this->IsBeingTested ()) {
-			if($this->oSlackLog){
-				$this->oSlackLog->Info ( "Slack Notification Action - TEST only" );
+			if($this->oWebhookLog){
+				$this->oWebhookLog->Info ( "Webhook Notification Action - TEST only" );
 			}
-			if (isset ( $sText )) {
-				return "Call-URL TEST Status: OK";
+			if (isset ( $aPostParams_raw['sText'] )) {
+				return "Webhook Notification Action TEST Status: OK";
 			} else {
-				return "Call-URL TEST Warning: Text is empty";
+				return "Webhook Notification Action TEST Warning: Text is empty";
 			}
 		} else { // "enabled"
 			try {
+				if($this->oWebhookLog){
+					$this->oWebhookLog->Info ('Starting webhook notification:');
+				}
+				// pepare Post data for each chat instance
+				$aPostParams = $this->preparePostData($aPostParams_raw);
+
+				if($this->oWebhookLog){
+					$this->oWebhookLog->Info ("Webhook Post Data: \n". print_r($aPostParams, true));
+				}
+
 				// issue http request (post)
-				if($this->oSlackLog){
-					$this->oSlackLog->Info ('Starting slack notification:');
-				}
-
-				$slackData = array();
-				$slackData['mrkdwn'] = true;
-
-				if (isset ( $sText )){
-					$sText = $this->prepareTextForSlack($sText);
-					$slackData['text'] = $sText;
-				}
-				if (isset ( $sSlackChannel )){
-					$slackData['channel'] = $sSlackChannel;
-				}
-				if (isset ( $sSlackBotName )){
-					$slackData['username'] = $sSlackBotName;
-				}
-				if (isset ( $sSendAttachment ) 
-					&& ($sSendAttachment === 'yes' || $sSendAttachment === 'Ja')){
-					$att_params = array();
-					if (isset ( $sAttTitle )){
-						$att_params['title'] = $sAttTitle;
-					}
-					if (isset ( $sAttTitleLink )){
-						$att_params['title_link'] = $sAttTitleLink;
-					}
-					if (isset ( $sAttColor )){
-						$att_params['color'] = $sAttColor;
-					}
-					if (isset ( $sAttText )){
-						$sAttText = $this->prepareTextForSlack($sAttText);
-						$att_params['text'] = $sAttText;
-						$att_params['mrkdwn_in'] = array("text");
-					}
-					if (isset ( $sAttFallback )){
-						$sAttFallback = $this->prepareTextForSlack($sAttFallback);
-						$att_params['fallback'] = $sAttFallback;
-					}
-					$slackData['attachments'][] = $att_params;
-				}
-				if($this->oSlackLog){
-					$this->oSlackLog->Info ("Slack Data: \n". print_r($slackData, true));
-				}
-
-				$aResult = $this->curl_post($sCallSlack,$slackData);
+				$aResult = $this->curl_post($sCallWebhook,$slackData);
 				
 				// there are two possible types of errors:
 				//     1. the server returns an error, for example (404, not found)
 				//                this will be reported in the variable $aResult ['status'] != 200
 				//     2. curl cannot execute the post-statement, for example "SSL Error"
 				//                this will be reported as the $aResult ['errno'] != 0
-				if($this->oSlackLog){
-					$this->oSlackLog->Info ( "curl err=" . $aResult ['errno'] . " \n err-msg=" . $aResult ['errmsg'] );
+				if($this->oWebhookLog){
+					$this->oWebhookLog->Info ( "curl err=" . $aResult ['errno'] . " \n err-msg=" . $aResult ['errmsg'] );
 				}
 				
 				if (! is_null ( $oLog )) {
@@ -414,10 +383,10 @@ class ActionSlackNotification extends ActionNotification {
 					}
 				}
 			} catch ( Exception $e ) {
-				if($this->oSlackLog){
-					$this->oSlackLog->Error ( "ERROR: " . $e->getMessage () );
+				if($this->oWebhookLog){
+					$this->oWebhookLog->Error ( "ERROR: " . $e->getMessage () );
 				}
-				return "Call-Slack ERROR: " . $e->getMessage ();
+				return "Call-Webhook ERROR: " . $e->getMessage ();
 			}
 		}
 	}
@@ -428,11 +397,7 @@ class ActionSlackNotification extends ActionNotification {
 	 * @param aParams array Parameter to for request
 	 * @return array response of the curl request
 	 */
-	private function curl_post($url, $aParams){
-
-		$postParam = array(
-			'payload' => json_encode($aParams)
-		);
+	private function curl_post($url, $postParam){
 
 		//Initiate cURL.
 		$ch = curl_init($url);
@@ -471,8 +436,8 @@ class ActionSlackNotification extends ActionNotification {
 		// Check for errors and display the error message
 		if ($iErrno = curl_errno ( $ch )) {
 			$sErrMessage = curl_error ( $ch );
-			if($this->oSlackLog){
-				$this->oSlackLog->Error ( "cURL error ({$iErrno}):\n {$sErrMessage}" );
+			if($this->oWebhookLog){
+				$this->oWebhookLog->Error ( "cURL error ({$iErrno}):\n {$sErrMessage}" );
 			}
 			$aResult->Errno = $iErrno;
 			$aResult->ErrMessage = $sErrMessage;
@@ -489,7 +454,7 @@ class ActionSlackNotification extends ActionNotification {
 		return $aResponse;
 	}
 
-	protected $m_aSlackErrors; // array of strings explaining the issue
+	protected $m_aWebhookErrors; // array of strings explaining the issue
 
 	/**
 	 * Create a link to an opbejct by an OQL
@@ -497,7 +462,7 @@ class ActionSlackNotification extends ActionNotification {
 	 * @param aArgs array Context Arguments
 	 * @return String link to the object or null
 	 */
-	private function GetObjectLink($sOqlAttCode, $aArgs){
+	protected function GetObjectLink($sOqlAttCode, $aArgs){
 		$sOQL = $this->Get($sOqlAttCode);
 		if (!isset($sOQL) || strlen($sOQL) == '') return '';
 		try{
@@ -506,14 +471,14 @@ class ActionSlackNotification extends ActionNotification {
 		}
 		catch (OQLException $e)
 		{
-			if($this->oSlackLog){
-				$this->oSlackLog->Error("query syntax error for OQL '$sOqlAttCode': " . $e->getMessage());
+			if($this->oWebhookLog){
+				$this->oWebhookLog->Error("query syntax error for OQL '$sOqlAttCode': " . $e->getMessage());
 			}
 			return null;
 		}
 		$oSet = new DBObjectSet($oSearch, array() /* order */, $aArgs);
 		if($oSet->Count() > 1){
-			$this->oSlackLog->Warning("Multiple results for OQL '$sOqlAttCode'. Just link the first object.");
+			$this->oWebhookLog->Warning("Multiple results for OQL '$sOqlAttCode'. Just link the first object.");
 			//Just Take first
 			$sClass = $oSet->GetClass();
 			$oObj = $oSet->Fetch();
@@ -525,11 +490,222 @@ class ActionSlackNotification extends ActionNotification {
 			return ApplicationContext::MakeObjectUrl($sClass, $oObj->GetKey(), null, true);
 		}
 		else{
-			if($this->oSlackLog){
-				$this->oSlackLog->Warning("No result for OQL '$sOqlAttCode'");
+			if($this->oWebhookLog){
+				$this->oWebhookLog->Warning("No result for OQL '$sOqlAttCode'");
 			}
 			return null;
 		}
+	}
+
+	abstract protected function preparePostData($aPostParams_raw);
+
+}
+
+class EventNotificationWebhookNotification extends EventNotification {
+	public static function Init() {
+		$aParams = array (
+				"category" => "core/cmdb,view_in_gui",
+				"key_type" => "autoincrement",
+				"name_attcode" => "",
+				"state_attcode" => "",
+				"reconc_keys" => array (),
+				"db_table" => "priv_event_webhook_notify",
+				"db_key_field" => "id",
+				"db_finalclass_field" => "",
+				"display_template" => "",
+				"order_by_default" => array (
+						'date' => false 
+				) 
+		);
+		MetaModel::Init_Params ( $aParams );
+		MetaModel::Init_InheritAttributes ();
+		
+		MetaModel::Init_AddAttribute ( new AttributeText ( "webhook_url", array (
+				"allowed_values" => null,
+				"sql" => "webhook_url",
+				"default_value" => null,
+				"is_null_allowed" => true,
+				"depends_on" => array () 
+		) ) );
+		MetaModel::Init_AddAttribute ( new AttributeText ( "channel", array (
+				"allowed_values" => null,
+				"sql" => "channel",
+				"default_value" => null,
+				"is_null_allowed" => true,
+				"depends_on" => array () 
+		) ) );
+		MetaModel::Init_AddAttribute ( new AttributeText ( "bot_alias", array (
+				"allowed_values" => null,
+				"sql" => "bot_alias",
+				"default_value" => null,
+				"is_null_allowed" => true,
+				"depends_on" => array () 
+		) ) );
+		MetaModel::Init_AddAttribute ( new AttributeText ( "webhook_finalclass", array (
+				"allowed_values" => null,
+				"sql" => "webhook_finalclass",
+				"default_value" => null,
+				"is_null_allowed" => true,
+				"depends_on" => array () 
+		) ) );
+		
+		MetaModel::Init_AddAttribute ( new AttributeText ( "response", array (
+				"allowed_values" => null,
+				"sql" => "response",
+				"default_value" => null,
+				"is_null_allowed" => true,
+				"depends_on" => array () 
+		) ) );
+		
+		// Display lists
+		MetaModel::Init_SetZListItems ( 'details', array (
+				'webhook_finalclass',
+				'date',
+				'userinfo',
+				'message',
+				'trigger_id',
+				'action_id',
+				'object_id',
+				'webhook_url',
+				'channel',
+				'bot_alias',
+				'response' 
+		
+		) ); // Attributes to be displayed for the complete details
+		
+		MetaModel::Init_SetZListItems ( 'list', array (
+				'date',
+				'webhook_finalclass',
+				'message',
+				'channel',
+				'bot_alias' 
+		) ); // Attributes to be displayed for a list
+			     
+		// Search criteria
+			     // MetaModel::Init_SetZListItems('standard_search', array('name')); // Criteria of the std search form
+			     // MetaModel::Init_SetZListItems('advanced_search', array('name')); // Criteria of the advanced search form
+	}
+}
+/**
+ * A user defined action, to customize the application
+ *
+ * @package itomig-slack-integration
+ *         
+ */
+class ActionSlackNotification extends ActionWebhookNotification {
+	public static function Init() {
+		$aParams = array (
+				"category" => "core/cmdb,application",
+				"key_type" => "autoincrement",
+				"name_attcode" => "name",
+				"state_attcode" => "",
+				"reconc_keys" => array (
+						'name' 
+				),
+				"db_table" => "priv_salck_notification",
+				"db_key_field" => "id",
+				"db_finalclass_field" => "",
+				"display_template" => "" 
+		);
+		MetaModel::Init_Params ( $aParams );
+		MetaModel::Init_InheritAttributes ();
+		
+		//Init Attributes
+
+		// Init displays
+
+		// Attributes to be displayed for the complete details view
+		MetaModel::Init_SetZListItems ( 'details', array (
+			0 => 'trigger_list',
+			'col:col1' => array (
+				'fieldset:ActionWebhookNotification:baseinfo' => array (
+					0 => 'name',
+					1 => 'description',
+					2 => 'status',
+					3 => 'debug_trace',
+				),
+				'fieldset:ActionWebhookNotification:urlinfo' => array (
+					0 => 'webhook_url',
+					1 => 'channel',
+					2 => 'bot_alias',
+				),
+				'fieldset:ActionWebhookNotification:standard' => array(
+					0 => 'text',
+				),
+			),
+			'col:col2' => array(
+				'fieldset:ActionWebhookNotification:attachment' => array(
+					0 => 'attachment',
+					1 => 'att_title',
+					2 => 'att_title_link',
+					3 => 'att_color',
+					4 => 'att_text',
+					5 => 'att_fallback',
+				),
+			)		
+		) );
+		// Attributes to be displayed for a list view
+		MetaModel::Init_SetZListItems ( 'list', array (
+				'name',
+				'status',
+				'webhook_url',
+				'channel',
+				'bot_alias', 
+		) );
+		// Attributes used as criteriaa of the std search form
+		MetaModel::Init_SetZListItems ( 'standard_search', array (
+				'name',
+				'description',
+				'status',
+				'webhook_url' 
+		) );
+		// MetaModel::Init_SetZListItems('advanced_search', array('name')); // Criteria of the advanced search form
+	}
+
+	//Custom log
+	private $oSlackLog;
+
+	protected function preparePostData($aPostParams_raw){
+		$slackData = array();
+		$slackData['mrkdwn'] = true;
+
+		if (isset ( $aPostParams_raw['sText'] )){
+			$aPostParams_raw['sText'] = $this->prepareTextForSlack($aPostParams_raw['sText']);
+			$slackData['text'] = $aPostParams_raw['sText'];
+		}
+		if (isset ( $aPostParams_raw['sWebhookChannel'] )){
+			$slackData['channel'] = $aPostParams_raw['sWebhookChannel'];
+		}
+		if (isset ( $aPostParams_raw['sBotAlias'] )){
+			$slackData['username'] = $aPostParams_raw['sBotAlias'];
+		}
+		if (isset ( $aPostParams_raw['sSendAttachment'] ) 
+			&& ($aPostParams_raw['sSendAttachment'] === 'yes' || $aPostParams_raw['sSendAttachment'] === 'Ja')){
+			$att_params = array();
+			if (isset ( $aPostParams_raw['sAttTitle'] )){
+				$att_params['title'] = $aPostParams_raw['sAttTitle'];
+			}
+			if (isset ( $aPostParams_raw['sAttTitleLink'] )){
+				$att_params['title_link'] = $aPostParams_raw['sAttTitleLink'];
+			}
+			if (isset ( $aPostParams_raw['sAttColor'] )){
+				$att_params['color'] = $aPostParams_raw['sAttColor'];
+			}
+			if (isset ( $aPostParams_raw['sAttText'] )){
+				$aPostParams_raw['sAttText'] = $this->prepareTextForSlack($aPostParams_raw['sAttText']);
+				$att_params['text'] = $aPostParams_raw['sAttText'];
+				$att_params['mrkdwn_in'] = array("text");
+			}
+			if (isset ( $aPostParams_raw['sAttFallback'] )){
+				$aPostParams_raw['sAttFallback'] = $this->prepareTextForSlack($aPostParams_raw['sAttFallback']);
+				$att_params['fallback'] = $aPostParams_raw['sAttFallback'];
+			}
+			$slackData['attachments'][] = $att_params;
+		}
+
+		return array(
+			'payload' => json_encode($slackData)
+		);
 	}
 
 	/**
@@ -560,83 +736,6 @@ class ActionSlackNotification extends ActionNotification {
 		return $sText;
 	}
 
-}
-
-class EventNotificationSlackNotification extends EventNotification {
-	public static function Init() {
-		$aParams = array (
-				"category" => "core/cmdb,view_in_gui",
-				"key_type" => "autoincrement",
-				"name_attcode" => "",
-				"state_attcode" => "",
-				"reconc_keys" => array (),
-				"db_table" => "priv_event_salck_notification",
-				"db_key_field" => "id",
-				"db_finalclass_field" => "",
-				"display_template" => "",
-				"order_by_default" => array (
-						'date' => false 
-				) 
-		);
-		MetaModel::Init_Params ( $aParams );
-		MetaModel::Init_InheritAttributes ();
-		
-		MetaModel::Init_AddAttribute ( new AttributeText ( "slack_url", array (
-				"allowed_values" => null,
-				"sql" => "slack_url",
-				"default_value" => null,
-				"is_null_allowed" => true,
-				"depends_on" => array () 
-		) ) );
-		MetaModel::Init_AddAttribute ( new AttributeText ( "channel", array (
-				"allowed_values" => null,
-				"sql" => "channel",
-				"default_value" => null,
-				"is_null_allowed" => true,
-				"depends_on" => array () 
-		) ) );
-		MetaModel::Init_AddAttribute ( new AttributeText ( "slackbot_name", array (
-				"allowed_values" => null,
-				"sql" => "slackbot_name",
-				"default_value" => null,
-				"is_null_allowed" => true,
-				"depends_on" => array () 
-		) ) );
-		
-		MetaModel::Init_AddAttribute ( new AttributeText ( "response", array (
-				"allowed_values" => null,
-				"sql" => "response",
-				"default_value" => null,
-				"is_null_allowed" => true,
-				"depends_on" => array () 
-		) ) );
-		
-		// Display lists
-		MetaModel::Init_SetZListItems ( 'details', array (
-				'date',
-				'userinfo',
-				'message',
-				'trigger_id',
-				'action_id',
-				'object_id',
-				'slack_url',
-				'channel',
-				'slackbot_name',
-				'response' 
-		
-		) ); // Attributes to be displayed for the complete details
-		
-		MetaModel::Init_SetZListItems ( 'list', array (
-				'date',
-				'message',
-				'channel',
-				'slackbot_name' 
-		) ); // Attributes to be displayed for a list
-			     
-		// Search criteria
-			     // MetaModel::Init_SetZListItems('standard_search', array('name')); // Criteria of the std search form
-			     // MetaModel::Init_SetZListItems('advanced_search', array('name')); // Criteria of the advanced search form
-	}
 }
 
 ?>
