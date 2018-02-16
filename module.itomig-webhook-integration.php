@@ -5,10 +5,10 @@
 //
 //
 SetupWebPage::AddModule ( __FILE__, // Path to the current file, all other file names are relative to the directory containing this file
-'itomig-slack-integration/17.4.0', array (
+'itomig-webhook-integration/18.1.0', array (
 		// Identification
 		//
-		'label' => 'Slack Integration (ITOMIG GmbH)',
+		'label' => 'Webhook Integration (ITOMIG GmbH)',
 		'category' => 'business',
 		
 		// Setup
@@ -22,12 +22,12 @@ SetupWebPage::AddModule ( __FILE__, // Path to the current file, all other file 
 		// Components
 		//
 		'datamodel' => array (
-				'model.itomig-slack-integration.php',
-				'main.itomig-slack-integration.php',
+				'model.itomig-webhook-integration.php',
+				'main.itomig-webhook-integration.php',
 		),
 		'webservice' => array (),
 		'data.struct' => array (
-			'data.struct.actionslacknotification.xml',
+			//'data.struct.actionslacknotification.xml',
 			// add your 'structure' definition XML files here,
 		),
 		'data.sample' => array (
