@@ -30,7 +30,7 @@ require_once (APPROOT . '/core/action.class.inc.php');
 /**
  * A user defined action, to customize the application
  *
- * @package itomig-slack-integration
+ * @package itomig-webhook-integration
  *         
  */
 abstract class ActionWebhookNotification extends ActionNotification {
@@ -403,7 +403,7 @@ abstract class ActionWebhookNotification extends ActionNotification {
 		$ch = curl_init($url);
 
 
-		$bCertCheck = MetaModel::GetModuleSetting ( 'itomig-slack-integration', 'certificate_check', true );
+		$bCertCheck = MetaModel::GetModuleSetting ( 'itomig-webhook-integration', 'certificate_check', true );
 		if ($bCertCheck) {
 			// curl_setopt($ch, CURLOPT_SSLVERSION, 3); // needed ?
 			curl_setopt ( $ch, CURLOPT_SSL_VERIFYPEER, 1 );
@@ -414,10 +414,10 @@ abstract class ActionWebhookNotification extends ActionNotification {
 			curl_setopt ( $ch, CURLOPT_SSL_VERIFYHOST, 0 );
 		}
 		
-		$iTimeout = MetaModel::GetModuleSetting ( 'itomig-slack-integration', 'timeout', 5 );
+		$iTimeout = MetaModel::GetModuleSetting ( 'itomig-webhook-integration', 'timeout', 5 );
 		curl_setopt ( $ch, CURLOPT_CONNECTTIMEOUT, $iTimeout );
 
-		$sCertFile = MetaModel::GetModuleSetting ( 'itomig-slack-integration', 'ca_certificate_file', '' );
+		$sCertFile = MetaModel::GetModuleSetting ( 'itomig-webhook-integration', 'ca_certificate_file', '' );
 		if ($sCertFile != '') {
 			curl_setopt ( $ch, CURLOPT_SSLCERT, $sCertFile ); // The name of a file containing a PEM formatted certificate.
 		}
