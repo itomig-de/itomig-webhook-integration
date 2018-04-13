@@ -51,6 +51,11 @@ SetupWebPage::AddModule ( __FILE__, // Path to the current file, all other file 
 				'certificate_file' => '',
 				
 				'timeout' => 5,  // timeout in seconds
+
+				'asynchronous' => false,
+
+				'debg_mode' => true,
+
 		) 
 ) );
 
