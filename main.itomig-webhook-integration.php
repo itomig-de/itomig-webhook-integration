@@ -28,6 +28,393 @@ define ('WEBREQUEST_SEND_PENDING', 1);
 define ('WEBREQUEST_SEND_ERROR', 2);
 
 
+abstract class WebRequest extends ActionNotification {
+	public static function Init() {
+		$aParams = array (
+				"category" => "core/cmdb,application",
+				"key_type" => "autoincrement",
+				"name_attcode" => "name",
+				"state_attcode" => "",
+				"reconc_keys" => array (
+						'name' 
+				),
+				"db_table" => "priv_webrequest_notify",
+				"db_key_field" => "id",
+				"db_finalclass_field" => "",
+				"display_template" => "" 
+		);
+		MetaModel::Init_Params ( $aParams );
+		MetaModel::Init_InheritAttributes ();
+		
+		//Init Attributes
+
+		MetaModel::Init_AddAttribute ( new AttributeURL ( "webrequest_url", array (
+				"allowed_values" => null,
+				"sql" => "webrequest_url",
+				"default_value" => null,
+				"target" => "_blank",
+				"is_null_allowed" => false,
+				"depends_on" => array ()
+		) ) );
+		// Init displays
+
+		// Attributes to be displayed for a list view
+		MetaModel::Init_SetZListItems ( 'list', array (
+				'name',
+				'finalclass',
+				'status',
+				'webrequest_url', 
+		) );
+		// Attributes used as criteriaa of the std search form
+		MetaModel::Init_SetZListItems ( 'standard_search', array (
+				'name',
+				'finalclass',
+				'description',
+				'status',
+				'webrequest_url' 
+		) );
+		// MetaModel::Init_SetZListItems('advanced_search', array('name')); // Criteria of the advanced search form
+	}
+
+	//Custom log
+	static protected $oWebrequestLog;
+	// array of strings explaining the issue
+	protected $m_aWebrequestErrors;
+	
+	/**
+	 * Execute when Action is called, Get fields, apply params and execute post request
+	 * @param oTrigger object TriggerObject which called the action
+	 * @param aContextArgs array Contect Arguments
+	 */
+	public function DoExecute($oTrigger, $aContextArgs) {
+
+		$bDebugMode = MetaModel::GetModuleSetting('itomig-webhook-integration', 'debg_mode', false);
+		if($bDebugMode){
+			if(!self::$oWebrequestLog){
+				self::$oWebrequestLog = new FileLog(APPROOT.'log/webhookintegration.log');
+			}
+		} else {
+			self::$oWebrequestLog = false;
+		}
+		
+		if (MetaModel::IsLogEnabledNotification ()) {
+			$oLog = new EventNotificationWebrequestNotification ();
+			if ($this->IsBeingTested ()) {
+				$oLog->Set ( 'message', 'TEST - Notifcation pending ' );
+			} else {
+				$oLog->Set ( 'message', 'Notification pending' );
+			}
+			$oLog->Set ( 'userinfo', UserRights::GetUser () );
+			$oLog->Set ( 'trigger_id', $oTrigger->GetKey () );
+			$oLog->Set ( 'action_id', $this->GetKey () );
+			$oLog->Set ( 'object_id', $aContextArgs ['this->object()']->GetKey () );
+			// Must be inserted now so that it gets a valid id that will make the link
+			// between an eventual asynchronous task (queued) and the log
+			$oLog->DBInsertNoReload ();
+		} else {
+			$oLog = null;
+		}
+		
+		try {
+
+			$sRes = $this->_DoExecute ($oTrigger, $aContextArgs, $oLog);
+			$sPrefix = ($this->IsBeingTested()) ? 'TEST - ' : '';
+			if ($oLog)
+			{
+				$oLog->Set('message', $sPrefix . $sRes);
+			}
+			
+		} catch ( Exception $e ) {
+			if ($oLog) {
+				$oLog->Set ( 'message', 'Error: ' . $e->getMessage () );
+			}
+			if(self::$oWebrequestLog){
+				self::$oWebrequestLog->Info("Error: " . $e->getMessage());
+			}
+		}
+		if ($oLog) {
+			$oLog->DBUpdate ();
+		}
+	}
+
+	/**
+	 * Helper function for DoExecute
+	 * @param oTrigger object TriggerObject which called the action
+	 * @param aContextArgs array Contect Arguments
+	 * @param oLog object reference to the Log Object for store information in EventNotification
+	 * @return String result
+	 */
+	private function _DoExecute($oTrigger, $aContextArgs, &$oLog) {
+		if(self::$oWebrequestLog){
+			self::$oWebrequestLog->Info("_DoExecute");
+		}
+		
+		$sPreviousUrlMaker = ApplicationContext::SetUrlMakerClass ();
+		try{
+			// Get URL
+			$sWebrequestURL = $this->Get("webrequest_url");
+			if (!is_null($oLog)){
+				$oLog->Set('webhook_url',$sWebrequestURL);
+			}
+			// pepare Post data depending on chat instance (Slack or Rocketchat)
+			$aPostParams = $this->preparePostData($oLog);
+		}
+		catch (Exception $e){
+			ApplicationContext::SetUrlMakerClass ( $sPreviousUrlMaker );
+			throw $e;
+		}
+		ApplicationContext::SetUrlMakerClass ( $sPreviousUrlMaker );
+		
+		if ($this->IsBeingTested ()) {
+			$sRes = "TEST - WebRequest Notification Action";
+			if(self::$oWebrequestLog){
+				self::$oWebrequestLog->Info ( "TEST mode: Set message to: " . $sRes );
+			}
+			if($oLog){
+				$oLog->Set('message', $sRes );
+			}
+		} 
+		else { // "enabled"
+			if(self::$oWebrequestLog){
+				self::$oWebrequestLog->Info ('Starting webhook request.');
+				self::$oWebrequestLog->Info ('URL: ' . $sWebrequestURL);
+				self::$oWebrequestLog->Info ('Post Data: ' . print_r($aPostParams, true));
+			}
+			$oWebReq = $this->prepareWebRequest($sWebrequestURL,$aPostParams);
+			$iRes = $oWebReq->Send($aErrors, false, $oLog);
+			if(self::$oWebrequestLog){
+				self::$oWebrequestLog->Info("Status: ".$iRes);
+				if($aErrors && is_array($aErrors)){
+					if(is_array($aErrors['httpResponse'])){
+						self::$oWebrequestLog->Info("HTTP Response: ".implode(', ', $aIssues['httpResponse']));
+					}
+					else{
+						self::$oWebrequestLog->Info("Errors: ".implode(', ', $aErrors));
+					}
+				}
+			}
+
+			switch ($iRes)
+			{
+				case EMAIL_SEND_OK:
+					return "Sent";
+
+				case EMAIL_SEND_PENDING:
+					return "Pending";
+
+				case EMAIL_SEND_ERROR:
+					if(is_array($aErrors['httpResponse'])){
+						return "Error - HTTP Response: ".implode(', ', $aIssues['httpResponse']);
+					}
+					return "Errors: ".implode(', ', $aErrors);
+			}
+		}
+	}
+
+	protected function prepareWebRequest($url, $aPostParam){
+
+		$oWebReq = new WebRequest($url);
+		//Initiate cURL.
+		//$ch = curl_init($url);
+
+		$aCurlOptions = array(
+			CURLOPT_RETURNTRANSFER => true,
+			CURLOPT_POST => 1,
+			CURLOPT_HTTPHEADER => array(
+				'Content-Type: application/json'
+			),
+			CURLOPT_CONNECTTIMEOUT => MetaModel::GetModuleSetting('itomig-webhook-integration', 'timeout', 5),
+			CURLOPT_POSTFIELDS => json_encode($aPostParam)
+		);
+		if (MetaModel::GetModuleSetting('itomig-webhook-integration', 'certificate_check', true)) {
+			$aCurlOptions[CURLOPT_SSL_VERIFYPEER] = 1;
+			$aCurlOptions[CURLOPT_SSL_VERIFYHOST] = 2;
+		} else {
+			// no certificate checks
+			$aCurlOptions[CURLOPT_SSL_VERIFYPEER] = 0;
+			$aCurlOptions[CURLOPT_SSL_VERIFYHOST] = 0;
+		}
+		if (($sCertFile = MetaModel::GetModuleSetting( 'itomig-webhook-integration', 'ca_certificate_file', '')) != '') {
+			$aCurlOptions[CURLOPT_SSLCERT] = $sCertFile; // The name of a file containing a PEM formatted certificate.
+		}
+		$oWebReq->setOptArray($aCurlOptions);
+
+		return $oWebReq;
+	}
+
+	abstract protected function preparePostData($aPostParams_raw);
+}
+
+
+class EventNotificationWebrequestNotification extends EventNotification {
+	public static function Init() {
+		$aParams = array (
+				"category" => "core/cmdb,view_in_gui",
+				"key_type" => "autoincrement",
+				"name_attcode" => "",
+				"state_attcode" => "",
+				"reconc_keys" => array (),
+				"db_table" => "priv_event_webrequest_notify",
+				"db_key_field" => "id",
+				"db_finalclass_field" => "",
+				"display_template" => "",
+				"order_by_default" => array (
+						'date' => false 
+				) 
+		);
+		MetaModel::Init_Params ( $aParams );
+		MetaModel::Init_InheritAttributes ();
+		
+		MetaModel::Init_AddAttribute ( new AttributeText ( "webrequest_url", array (
+				"allowed_values" => null,
+				"sql" => "webrequest_url",
+				"default_value" => null,
+				"is_null_allowed" => true,
+				"depends_on" => array () 
+		) ) );
+		MetaModel::Init_AddAttribute ( new AttributeText ( "çontent", array (
+				"allowed_values" => null,
+				"sql" => "content",
+				"default_value" => null,
+				"is_null_allowed" => true,
+				"depends_on" => array () 
+		) ) );
+		MetaModel::Init_AddAttribute ( new AttributeText ( "webrequest_finalclass", array (
+				"allowed_values" => null,
+				"sql" => "webrequest_finalclass",
+				"default_value" => null,
+				"is_null_allowed" => true,
+				"depends_on" => array () 
+		) ) );
+		
+		MetaModel::Init_AddAttribute ( new AttributeText ( "response", array (
+				"allowed_values" => null,
+				"sql" => "response",
+				"default_value" => null,
+				"is_null_allowed" => true,
+				"depends_on" => array () 
+		) ) );
+		
+		// Display lists
+		MetaModel::Init_SetZListItems ( 'details', array (
+				'webrequest_finalclass',
+				'date',
+				'userinfo',
+				'message',
+				'trigger_id',
+				'action_id',
+				'object_id',
+				'webrequest_url',
+				'content'
+		
+		) ); // Attributes to be displayed for the complete details
+		
+		MetaModel::Init_SetZListItems ( 'list', array (
+				'date',
+				'webrequest_finalclass',
+				'message',
+		) ); // Attributes to be displayed for a list
+			     
+		// Search criteria
+			     // MetaModel::Init_SetZListItems('standard_search', array('name')); // Criteria of the std search form
+			     // MetaModel::Init_SetZListItems('advanced_search', array('name')); // Criteria of the advanced search form
+	}
+}
+
+class WebRequest{
+	protected $sURL;
+	protected $aOptions;
+
+	public function __construct($sURL){
+		$this->sURL = $sURL;
+		$this->aOptions = array();
+	}
+
+	public function setOpt($option, $value){
+		$this->$aOptions[$option] = $value;
+	}
+
+	public function setOptArray($aOptions){
+		foreach ($aOptions as $option => $value) {
+			$this->aOptions[$option] = $value;
+		}
+	}
+
+	public function SendSynchronous(&$aIssues, $oLog = null, $oWebhookLog = null){
+		//Execute the request
+		$ch = curl_init($this->sURL);
+		curl_setopt_array($ch, $this->aOptions);
+		$sContent = curl_exec($ch);
+
+		$sHttpStatus = curl_getinfo ( $ch, CURLINFO_HTTP_CODE );
+		$sErrMessage = '';
+		
+		// Check for errors and display the error message
+		if ($iErrno = curl_errno ( $ch )) {
+			$sErrMessage = curl_error ( $ch );
+			if($oWebhookLog){
+				$oWebhookLog->Error("cURL error ({$iErrno}):\n {$sErrMessage}");
+			}
+			$aResult->Errno = $iErrno;
+			$aResult->ErrMessage = $sErrMessage;
+		}
+		
+		curl_close ( $ch );
+
+		$aIssues = array(
+			'httpResponse' => array(
+				'status' => $sHttpStatus,
+				'content' => $sContent,
+				'errno' => $iErrno,
+				'errmsg' => $sErrMessage
+			)
+		);
+		if (($iErrno == 0) && ($sHttpStatus == 200))
+		{
+			return WEBREQUEST_SEND_OK;
+		} 
+		else {
+			return WEBREQUEST_SEND_ERROR;
+		}
+	}
+
+	protected function SendAsynchronous(&$aIssues, $oLog = null, $oWebhookLog = null)
+	{
+		try{
+			AsyncSendRequest::AddToQueue($this, $oLog);
+		}
+		catch(Exception $e)
+		{
+			$aIssues = array($e->GetMessage(),"Exception thrown after tried to add Reuqest to queue");
+			return WEBREQUEST_SEND_ERROR;
+		}
+		$aIssues = array();
+		return WEBREQUEST_SEND_PENDING;
+
+	}
+
+	public function Send(&$aIssues, $bForceSynchronous = false, $oLog = null, $oWebhookLog = null)
+	{
+		if ($bForceSynchronous)
+		{
+			return $this->SendSynchronous($oLog, $oWebhookLog);
+		}
+		else{
+			$bConfigASYNC = MetaModel::GetModuleSetting('itomig-webhook-integration', 'asynchronous', false);
+			if ($bConfigASYNC)
+			{
+				return $this->SendAsynchronous($aIssues, $oLog, $oWebhookLog);
+			}
+			else
+			{
+				return $this->SendSynchronous($aIssues, $oLog, $oWebhookLog);
+			}
+		}
+
+	}
+
+}
+
 /**
  * A user defined action, to customize the application
  *
@@ -787,100 +1174,6 @@ class ActionRocketChatNotification extends ActionWebhookNotification {
 	        }
 	    }
 		return $sText;
-	}
-
-}
-
-class WebRequest{
-	protected $sURL;
-	protected $aOptions;
-
-	public function __construct($sURL){
-		$this->sURL = $sURL;
-		$this->aOptions = array();
-	}
-
-	public function setOpt($option, $value){
-		$this->$aOptions[$option] = $value;
-	}
-
-	public function setOptArray($aOptions){
-		foreach ($aOptions as $option => $value) {
-			$this->aOptions[$option] = $value;
-		}
-	}
-
-	public function SendSynchronous(&$aIssues, $oLog = null, $oWebhookLog = null){
-		//Execute the request
-		$ch = curl_init($this->sURL);
-		curl_setopt_array($ch, $this->aOptions);
-		$sContent = curl_exec($ch);
-
-		$sHttpStatus = curl_getinfo ( $ch, CURLINFO_HTTP_CODE );
-		$sErrMessage = '';
-		
-		// Check for errors and display the error message
-		if ($iErrno = curl_errno ( $ch )) {
-			$sErrMessage = curl_error ( $ch );
-			if($oWebhookLog){
-				$oWebhookLog->Error("cURL error ({$iErrno}):\n {$sErrMessage}");
-			}
-			$aResult->Errno = $iErrno;
-			$aResult->ErrMessage = $sErrMessage;
-		}
-		
-		curl_close ( $ch );
-
-		$aIssues = array(
-			'httpResponse' => array(
-				'status' => $sHttpStatus,
-				'content' => $sContent,
-				'errno' => $iErrno,
-				'errmsg' => $sErrMessage
-			)
-		);
-		if (($iErrno == 0) && ($sHttpStatus == 200))
-		{
-			return WEBREQUEST_SEND_OK;
-		} 
-		else {
-			return WEBREQUEST_SEND_ERROR;
-		}
-	}
-
-	protected function SendAsynchronous(&$aIssues, $oLog = null, $oWebhookLog = null)
-	{
-		try{
-			AsyncSendRequest::AddToQueue($this, $oLog);
-		}
-		catch(Exception $e)
-		{
-			$aIssues = array($e->GetMessage(),"Exception thrown after tried to add Reuqest to queue");
-			return WEBREQUEST_SEND_ERROR;
-		}
-		$aIssues = array();
-		return WEBREQUEST_SEND_PENDING;
-
-	}
-
-	public function Send(&$aIssues, $bForceSynchronous = false, $oLog = null, $oWebhookLog = null)
-	{
-		if ($bForceSynchronous)
-		{
-			return $this->SendSynchronous($oLog, $oWebhookLog);
-		}
-		else{
-			$bConfigASYNC = MetaModel::GetModuleSetting('itomig-webhook-integration', 'asynchronous', false);
-			if ($bConfigASYNC)
-			{
-				return $this->SendAsynchronous($aIssues, $oLog, $oWebhookLog);
-			}
-			else
-			{
-				return $this->SendSynchronous($aIssues, $oLog, $oWebhookLog);
-			}
-		}
-
 	}
 
 }
