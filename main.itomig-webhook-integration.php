@@ -28,7 +28,7 @@ define ('WEBREQUEST_SEND_PENDING', 1);
 define ('WEBREQUEST_SEND_ERROR', 2);
 
 
-abstract class WebRequest extends ActionNotification {
+abstract class ActionWebRequest extends ActionNotification {
 	public static function Init() {
 		$aParams = array (
 				"category" => "core/cmdb,application",
@@ -421,7 +421,7 @@ class WebRequest{
  * @package itomig-webhook-integration
  *         
  */
-abstract class ActionWebhookNotification extends ActionNotification {
+abstract class ActionWebhookNotification extends ActionWebRequest {
 	public static function Init() {
 		$aParams = array (
 				"category" => "core/cmdb,application",
@@ -578,164 +578,6 @@ abstract class ActionWebhookNotification extends ActionNotification {
 		// MetaModel::Init_SetZListItems('advanced_search', array('name')); // Criteria of the advanced search form
 	}
 
-	//Custom log
-	static protected $oWebhookLog;
-	// array of strings explaining the issue
-	protected $m_aWebhookErrors;
-	
-	/**
-	 * Execute when Action is called, Get fields, apply params and execute post request
-	 * @param oTrigger object TriggerObject which called the action
-	 * @param aContextArgs array Contect Arguments
-	 */
-	public function DoExecute($oTrigger, $aContextArgs) {
-
-		$bDebugMode = MetaModel::GetModuleSetting('itomig-webhook-integration', 'debg_mode', false);
-		if($bDebugMode){
-			if(!self::$oWebhookLog){
-				self::$oWebhookLog = new FileLog(APPROOT.'log/webhookintegration.log');
-			}
-		} else {
-			self::$oWebhookLog = false;
-		}
-		
-		if (MetaModel::IsLogEnabledNotification ()) {
-			$oLog = new EventNotificationWebhookNotification ();
-			if ($this->IsBeingTested ()) {
-				$oLog->Set ( 'message', 'TEST - Notifcation pending ' );
-			} else {
-				$oLog->Set ( 'message', 'Notification pending' );
-			}
-			$oLog->Set ( 'userinfo', UserRights::GetUser () );
-			$oLog->Set ( 'trigger_id', $oTrigger->GetKey () );
-			$oLog->Set ( 'action_id', $this->GetKey () );
-			$oLog->Set ( 'object_id', $aContextArgs ['this->object()']->GetKey () );
-			// Must be inserted now so that it gets a valid id that will make the link
-			// between an eventual asynchronous task (queued) and the log
-			$oLog->DBInsertNoReload ();
-		} else {
-			$oLog = null;
-		}
-		
-		try {
-
-			$sRes = $this->_DoExecute ($oTrigger, $aContextArgs, $oLog);
-			$sPrefix = ($this->IsBeingTested()) ? 'TEST - ' : '';
-			if ($oLog)
-			{
-				$oLog->Set('message', $sPrefix . $sRes);
-			}
-			
-		} catch ( Exception $e ) {
-			if ($oLog) {
-				$oLog->Set ( 'message', 'Error: ' . $e->getMessage () );
-			}
-			if(self::$oWebhookLog){
-				self::$oWebhookLog->Info("Error: " . $e->getMessage());
-			}
-		}
-		if ($oLog) {
-			$oLog->DBUpdate ();
-		}
-	}
-
-	/**
-	 * Helper function for DoExecute
-	 * @param oTrigger object TriggerObject which called the action
-	 * @param aContextArgs array Contect Arguments
-	 * @param oLog object reference to the Log Object for store information in EventNotification
-	 * @return String result
-	 */
-	private function _DoExecute($oTrigger, $aContextArgs, &$oLog) {
-		if(self::$oWebhookLog){
-			self::$oWebhookLog->Info("_DoExecute");
-		}
-		
-		$sPreviousUrlMaker = ApplicationContext::SetUrlMakerClass ();
-		try{
-			// Get URL
-			$sCallWebhook = $this->Get("webhook_url");
-			// substitude iTop Variables in parameters
-			$aPostParams_raw = array(
-				'sWebhookChannel' => $this->Get('channel'), 
-				'sBotAlias' => $this->Get('bot_alias'), 
-				'sSendAttachment' => $this->Get('attachment'), 
-				'sText' => MetaModel::ApplyParams($this->Get("text"), $aContextArgs), 
-				'sAttTitle' => MetaModel::ApplyParams($this->Get("att_title"), $aContextArgs), 
-				'sAttTitleLink' => $this->GetObjectLink('att_title_link', $aContextArgs), 
-				'sAttColor' => $this->Get('att_color'), 
-				'sAttText' => MetaModel::ApplyParams($this->Get("att_text"), $aContextArgs), 
-				'sAttFallback' => MetaModel::ApplyParams($this->Get("att_fallback"), $aContextArgs), 
-			);
-			// pepare Post data depending on chat instance (Slack or Rocketchat)
-			$aPostParams = $this->preparePostData($aPostParams_raw);
-		}
-		catch (Exception $e){
-			ApplicationContext::SetUrlMakerClass ( $sPreviousUrlMaker );
-			throw $e;
-		}
-		ApplicationContext::SetUrlMakerClass ( $sPreviousUrlMaker );
-		
-		if (!is_null($oLog)){
-			$oLog->Set('webhook_url',$sCallWebhook);
-			$oLog->Set('webhook_finalclass', $this->Get('finalclass'));
-			if (isset($aPostParams_raw['sWebhookChannel'])){
-			 	$oLog->Set('channel', $aPostParams_raw['sWebhookChannel']);
-			}
-			if (isset($aPostParams_raw['sBotAlias'])){
-			 	$oLog->Set('bot_alias', $aPostParams_raw['sBotAlias']);
-			}
-		}
-		if ($this->IsBeingTested ()) {
-			if(isset($aPostParams_raw['sText'])){
-				$sRes = "TEST - Webhook Notification Action TEST Status: OK";
-			} else {
-				$sRes = "TEST - Webhook Notification Action TEST Warning: Text is empty";
-			}
-			if(self::$oWebhookLog){
-				self::$oWebhookLog->Info ( "TEST mode: Set message to: " . $sRes );
-			}
-			if($oLog){
-				$oLog->Set('message', $sRes );
-			}
-		} 
-		else { // "enabled"
-			if(self::$oWebhookLog){
-				self::$oWebhookLog->Info ('Starting webhook request.');
-				self::$oWebhookLog->Info ('URL: ' . $sCallWebhook);
-				self::$oWebhookLog->Info ('Post Data: ' . print_r($aPostParams, true));
-			}
-			$oWebReq = $this->prepareWebRequest($sCallWebhook,$aPostParams);
-			$iRes = $oWebReq->Send($aErrors, false, $oLog);
-			if(self::$oWebhookLog){
-				self::$oWebhookLog->Info("Status: ".$iRes);
-				if($aErrors && is_array($aErrors)){
-					if(is_array($aErrors['httpResponse'])){
-						self::$oWebhookLog->Info("HTTP Response: ".implode(', ', $aIssues['httpResponse']));
-					}
-					else{
-						self::$oWebhookLog->Info("Errors: ".implode(', ', $aErrors));
-					}
-				}
-			}
-
-			switch ($iRes)
-			{
-				case EMAIL_SEND_OK:
-					return "Sent";
-
-				case EMAIL_SEND_PENDING:
-					return "Pending";
-
-				case EMAIL_SEND_ERROR:
-					if(is_array($aErrors['httpResponse'])){
-						return "Error - HTTP Response: ".implode(', ', $aIssues['httpResponse']);
-					}
-					return "Errors: ".implode(', ', $aErrors);
-			}
-		}
-	}
-
 	protected function prepareWebRequest($url, $aPostParam){
 
 		$oWebReq = new WebRequest($url);
@@ -808,7 +650,20 @@ abstract class ActionWebhookNotification extends ActionNotification {
 		}
 	}
 
-	abstract protected function preparePostData($aPostParams_raw);
+	protected function preparePostData(&$oLog){
+		$aPostParams_raw = array(
+			'sWebhookChannel' => $this->Get('channel'), 
+			'sBotAlias' => $this->Get('bot_alias'), 
+			'sSendAttachment' => $this->Get('attachment'), 
+			'sText' => MetaModel::ApplyParams($this->Get("text"), $aContextArgs), 
+			'sAttTitle' => MetaModel::ApplyParams($this->Get("att_title"), $aContextArgs), 
+			'sAttTitleLink' => $this->GetObjectLink('att_title_link', $aContextArgs), 
+			'sAttColor' => $this->Get('att_color'), 
+			'sAttText' => MetaModel::ApplyParams($this->Get("att_text"), $aContextArgs), 
+			'sAttFallback' => MetaModel::ApplyParams($this->Get("att_fallback"), $aContextArgs), 
+		);
+		return $aPostParams_raw;
+	}
 
 }
 
