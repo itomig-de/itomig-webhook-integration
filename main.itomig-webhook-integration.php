@@ -27,8 +27,150 @@ define ('WEBREQUEST_SEND_OK', 0);
 define ('WEBREQUEST_SEND_PENDING', 1);
 define ('WEBREQUEST_SEND_ERROR', 2);
 
+/**
+ * Web request
+ * sending web requests to $sURL with specific options 
+ * via curl
+ *
+ */
+class WebRequest{
+	protected $sURL;
+	protected $aOptions;
 
+	/**
+	 * Create a new objects of this class
+	 * @param string $sURL Url which should called with this request
+	 * @return WebRequest new Object of this class
+	 */
+	public function __construct($sURL){
+		$this->sURL = $sURL;
+		$this->aOptions = array();
+	}
+
+	/**
+	 * Sets Opt Option for curl
+	 * @param string $option name of curl option to be set
+	 * @param string $value value to be set
+	 * @return void
+	 */
+	public function setOpt($option, $value){
+		$this->$aOptions[$option] = $value;
+	}
+
+	/**
+	 * Sets mulltiple opt options for curl at once
+	 * @param string $aOption array with key values for options
+	 * @return void
+	 */
+	public function setOptArray($aOptions){
+		foreach ($aOptions as $option => $value) {
+			$this->aOptions[$option] = $value;
+		}
+	}
+
+	/**
+	 * Send the reuqest synchronous
+	 * @param Array $aIssues reference to an array for holding errors or other feeback information
+	 * @param EventNotificationWebrequestNotification $oLog Object where status information can be written in
+	 * @return Intenger status auf webrequest
+	 */
+	public function SendSynchronous(&$aIssues, $oLog = null){
+		//Execute the request
+		try{
+			$ch = curl_init($this->sURL);
+			curl_setopt_array($ch, $this->aOptions);
+			$sContent = curl_exec($ch);
+
+			$sHttpStatus = curl_getinfo ( $ch, CURLINFO_HTTP_CODE );
+			$sErrMessage = '';
+			
+			// Check for errors and display the error message
+			if ($iErrno = curl_errno ( $ch )) {
+				$sErrMessage = curl_error ( $ch );
+				$aResult->Errno = $iErrno;
+				$aResult->ErrMessage = $sErrMessage;
+			}
+			
+			curl_close ( $ch );
+
+			$aIssues = array(
+				'httpResponse' => array(
+					'status' => $sHttpStatus,
+					'content' => $sContent,
+					'errno' => $iErrno,
+					'errmsg' => $sErrMessage
+				)
+			);
+			if (($iErrno == 0) && ($sHttpStatus == 200))
+			{
+				return WEBREQUEST_SEND_OK;
+			} 
+			else {
+				return WEBREQUEST_SEND_ERROR;
+			}
+		}
+		catch(Exception $e) {
+			IssueLog::Error('ITOMIG Webhook Integration - ' . $e->getMessage());
+			$aIssues = array($e->getMessage());
+			return WEBREQUEST_SEND_ERROR;
+		}
+	}
+
+	/**
+	 * Send the reuqest asynchronous, add request to a queue of async tasks
+	 * @param Array $aIssues reference to an array for holding errors or other feeback information
+	 * @param EventNotificationWebrequestNotification $oLog Object where status information can be written in
+	 * @return Intenger status auf webrequest
+	 */
+	protected function SendAsynchronous(&$aIssues, $oLog = null)
+	{
+		try{
+			AsyncSendRequest::AddToQueue($this, $oLog);
+		}
+		catch(Exception $e)
+		{
+			$aIssues = array($e->GetMessage(),"Exception thrown after tried to add Reuqest to queue");
+			return WEBREQUEST_SEND_ERROR;
+		}
+		$aIssues = array();
+		return WEBREQUEST_SEND_PENDING;
+
+	}
+
+	/**
+	 * Send the reuqest
+	 * @param Array $aIssues reference to an array for holding errors or other feeback information
+	 * @param boolean $bForceSynchronous if set to true request will send synch anyway regardless of the configuration
+	 * @param EventNotificationWebrequestNotification $oLog Object where status information can be written in
+	 * @return Intenger status auf webrequest
+	 */
+	public function Send(&$aIssues, $bForceSynchronous = false, $oLog = null)
+	{
+		if ($bForceSynchronous)
+		{
+			return $this->SendSynchronous($aIssues, $oLog);
+		}
+		else{
+			$bConfigASYNC = MetaModel::GetModuleSetting('itomig-webhook-integration', 'asynchronous', false);
+			if ($bConfigASYNC)
+			{
+				return $this->SendAsynchronous($aIssues, $oLog);
+			}
+			else
+			{
+				return $this->SendSynchronous($aIssues, $oLog);
+			}
+		}
+	}
+}
+
+/**
+ * Configure web request calls
+ * in objectes of these class
+ *
+ */
 abstract class ActionWebRequest extends ActionNotification {
+	
 	public static function Init() {
 		$aParams = array (
 				"category" => "core/cmdb,application",
@@ -86,9 +228,7 @@ abstract class ActionWebRequest extends ActionNotification {
 	 * @param aContextArgs array Contect Arguments
 	 */
 	public function DoExecute($oTrigger, $aContextArgs) {
-
-		$bDebugMode = MetaModel::GetModuleSetting('itomig-webhook-integration', 'debg_mode', false);
-		
+		// Create NotificationObject to Log Status information if enabled
 		if (MetaModel::IsLogEnabledNotification ()) {
 			$oLog = new EventNotificationWebrequestNotification ();
 			if ($this->IsBeingTested ()) {
@@ -101,17 +241,16 @@ abstract class ActionWebRequest extends ActionNotification {
 			$oLog->Set ( 'trigger_id', $oTrigger->GetKey () );
 			$oLog->Set ( 'action_id', $this->GetKey () );
 			$oLog->Set ( 'object_id', $aContextArgs ['this->object()']->GetKey () );
-			// Must be inserted now so that it gets a valid id that will make the link
-			// between an eventual asynchronous task (queued) and the log
 			$oLog->DBInsertNoReload ();
 		} else {
 			$oLog = null;
 		}
 		
 		try {
-
+			//Execute Request
 			$sRes = $this->_DoExecute ($oTrigger, $aContextArgs, $oLog);
 			$sPrefix = ($this->IsBeingTested()) ? 'TEST - ' : '';
+			// Logging Feedback
 			if ($oLog)
 			{
 				$oLog->Set('message', $sPrefix . $sRes);
@@ -143,7 +282,7 @@ abstract class ActionWebRequest extends ActionNotification {
 			if (!is_null($oLog)){
 				$oLog->Set('webrequest_url',$sWebrequestURL);
 			}
-			// pepare Post data depending on chat instance (Slack or Rocketchat)
+			// pepare post data depending on finalclass
 			$aPostParams = $this->preparePostData($oLog);
 		}
 		catch (Exception $e){
@@ -152,11 +291,12 @@ abstract class ActionWebRequest extends ActionNotification {
 		}
 		ApplicationContext::SetUrlMakerClass ( $sPreviousUrlMaker );
 		if(empty($this->m_aWebrequestErrors))
-		{
+		{ // If no error occurred until now
 			if ($this->IsBeingTested ()) {
+				// No Execution in Test mode
 				return "WebRequest Notification Action";
 			} 
-			else { // "enabled" 
+			else { 
 				$oWebReq = $this->prepareWebRequest($sWebrequestURL,$aPostParams);
 				$iRes = $oWebReq->Send($aIssues, false, $oLog);
 				switch ($iRes)
@@ -181,8 +321,14 @@ abstract class ActionWebRequest extends ActionNotification {
 		}
 	}
 
+	/**
+	 * Helper function for prepareing curl request
+	 * Could be overridden by child classes
+	 * @param url String url for request
+	 * @param aPostParam array post parameters
+	 * @return WebRequest Webrequest with Params and Options
+	 */
 	protected function prepareWebRequest($url, $aPostParam){
-
 		$oWebReq = new WebRequest($url);
 		$aCurlOptions = array(
 			CURLOPT_RETURNTRANSFER => true,
@@ -212,7 +358,76 @@ abstract class ActionWebRequest extends ActionNotification {
 	abstract protected function preparePostData(&$oLog);
 }
 
+/**
+ * Configure webhook calls (i.e. Slack)
+ * in objectes of these class
+ *
+ */
+abstract class _ActionWebhookNotification extends ActionWebRequest {
 
+	/**
+	 * returns a link to the first found object by oql
+	 * @param sOqlAttCode String code of attribute which contains oql
+	 * @param aArgs array arguments for oql
+	 * @return String link to first result
+	 */
+	protected function GetObjectLink($sOqlAttCode, $aArgs){
+		$sOQL = $this->Get($sOqlAttCode);
+		if (!isset($sOQL) || strlen($sOQL) == '') return '';
+		try{
+			$oSearch = DBObjectSearch::FromOQL($sOQL);
+			$oSearch->AllowAllData();
+		}
+		catch (OQLException $e)
+		{
+			$this->m_aWebrequestErrors[] = "query syntax error for recipient '$sOqlAttCode'";
+			return $e->getMessage();
+		}
+		$oSet = new DBObjectSet($oSearch, array() /* order */, $aArgs);
+		if($oSet->Count() > 1){
+			IssueLog::Warning("ITOMIG Webhook Integration - Multiple results for OQL '$sOqlAttCode'. Just link the first object.");
+			//Just Take first
+			$sClass = $oSet->GetClass();
+			$oObj = $oSet->Fetch();
+			return ApplicationContext::MakeObjectUrl($sClass, $oObj->GetKey(), null, true);
+		}
+		else if ($oSet->Count() > 0){
+			$sClass = $oSet->GetClass();
+			$oObj = $oSet->Fetch();
+			return ApplicationContext::MakeObjectUrl($sClass, $oObj->GetKey(), null, true);
+		}
+		else{
+			$this->m_aWebrequestErrors[] = "No result for OQL '$sOqlAttCode'";
+			return null;
+		}
+	}
+
+	/**
+	 * prepares data for the request
+	 * @param oLog object reference to the Log Object for store information in EventNotification
+	 * @return Array contains data for request
+	 */
+	protected function preparePostData(&$oLog){
+		$aPostParams_raw = array(
+			'sWebhookChannel' => $this->Get('channel'), 
+			'sBotAlias' => $this->Get('bot_alias'), 
+			'sSendAttachment' => $this->Get('attachment'), 
+			'sText' => MetaModel::ApplyParams($this->Get("text"), $aContextArgs), 
+			'sAttTitle' => MetaModel::ApplyParams($this->Get("att_title"), $aContextArgs), 
+			'sAttTitleLink' => $this->GetObjectLink('att_title_link', $aContextArgs), 
+			'sAttColor' => $this->Get('att_color'), 
+			'sAttText' => MetaModel::ApplyParams($this->Get("att_text"), $aContextArgs), 
+			'sAttFallback' => MetaModel::ApplyParams($this->Get("att_fallback"), $aContextArgs), 
+		);
+		return $aPostParams_raw;
+	}
+}
+
+/**
+ * Logging status and content of web requests
+ * in objectes of these class
+ *
+ */
 class EventNotificationWebrequestNotification extends EventNotification {
 	public static function Init() {
 		$aParams = array (
@@ -289,104 +504,10 @@ class EventNotificationWebrequestNotification extends EventNotification {
 	}
 }
 
-class WebRequest{
-	protected $sURL;
-	protected $aOptions;
-
-	public function __construct($sURL){
-		$this->sURL = $sURL;
-		$this->aOptions = array();
-	}
-
-	public function setOpt($option, $value){
-		$this->$aOptions[$option] = $value;
-	}
-
-	public function setOptArray($aOptions){
-		foreach ($aOptions as $option => $value) {
-			$this->aOptions[$option] = $value;
-		}
-	}
-
-	public function SendSynchronous(&$aIssues, $oLog = null, $oWebhookLog = null){
-		//Execute the request
-		try{
-			$ch = curl_init($this->sURL);
-			curl_setopt_array($ch, $this->aOptions);
-			$sContent = curl_exec($ch);
-
-			$sHttpStatus = curl_getinfo ( $ch, CURLINFO_HTTP_CODE );
-			$sErrMessage = '';
-			
-			// Check for errors and display the error message
-			if ($iErrno = curl_errno ( $ch )) {
-				$sErrMessage = curl_error ( $ch );
-				$aResult->Errno = $iErrno;
-				$aResult->ErrMessage = $sErrMessage;
-			}
-			
-			curl_close ( $ch );
-
-			$aIssues = array(
-				'httpResponse' => array(
-					'status' => $sHttpStatus,
-					'content' => $sContent,
-					'errno' => $iErrno,
-					'errmsg' => $sErrMessage
-				)
-			);
-			if (($iErrno == 0) && ($sHttpStatus == 200))
-			{
-				return WEBREQUEST_SEND_OK;
-			} 
-			else {
-				return WEBREQUEST_SEND_ERROR;
-			}
-		}
-		catch(Exception $e) {
-			IssueLog::Error('ITOMIG Webhook Integration - ' . $e->getMessage());
-			$aIssues = array($e->getMessage());
-			return WEBREQUEST_SEND_ERROR;
-		}
-	}
-
-	protected function SendAsynchronous(&$aIssues, $oLog = null, $oWebhookLog = null)
-	{
-		try{
-			AsyncSendRequest::AddToQueue($this, $oLog);
-		}
-		catch(Exception $e)
-		{
-			$aIssues = array($e->GetMessage(),"Exception thrown after tried to add Reuqest to queue");
-			return WEBREQUEST_SEND_ERROR;
-		}
-		$aIssues = array();
-		return WEBREQUEST_SEND_PENDING;
-
-	}
-
-	public function Send(&$aIssues, $bForceSynchronous = false, $oLog = null, $oWebhookLog = null)
-	{
-		if ($bForceSynchronous)
-		{
-			return $this->SendSynchronous($aIssues, $oLog, $oWebhookLog);
-		}
-		else{
-			$bConfigASYNC = MetaModel::GetModuleSetting('itomig-webhook-integration', 'asynchronous', false);
-			if ($bConfigASYNC)
-			{
-				return $this->SendAsynchronous($aIssues, $oLog, $oWebhookLog);
-			}
-			else
-			{
-				return $this->SendSynchronous($aIssues, $oLog, $oWebhookLog);
-			}
-		}
-
-	}
-
-}
-
+/**
+ * Sending WebRequests Async
+ *
+ */
 class AsyncSendRequest extends AsyncTask
 {
 	public static function Init()
@@ -442,535 +563,6 @@ class AsyncSendRequest extends AsyncTask
 			return "Failed: ".implode(', ', $aIssues);
 		}
 	}
-}
-
-/**
- * A user defined action, to customize the application
- *
- * @package itomig-webhook-integration
- *         
- */
-abstract class _ActionWebhookNotification extends ActionWebRequest {
-	/**
-	public static function Init() {
-		$aParams = array (
-				"category" => "core/cmdb,application",
-				"key_type" => "autoincrement",
-				"name_attcode" => "name",
-				"state_attcode" => "",
-				"reconc_keys" => array (
-						'name' 
-				),
-				"db_table" => "priv_webhook_notify",
-				"db_key_field" => "id",
-				"db_finalclass_field" => "",
-				"display_template" => "" 
-		);
-		MetaModel::Init_Params ( $aParams );
-		MetaModel::Init_InheritAttributes ();
-		
-		//Init Attributes
-
-		MetaModel::Init_AddAttribute ( new AttributeString ( "channel", array (
-				"allowed_values" => null,
-				"sql" => "channel",
-				"default_value" => "",
-				"is_null_allowed" => true,
-				"depends_on" => array (),
-				"always_load_in_tables"=>false 
-		) ) );
-
-		MetaModel::Init_AddAttribute ( new AttributeString ( "bot_alias", array (
-				"allowed_values" => null,
-				"sql" => "bot_alias",
-				"default_value" => "",
-				"is_null_allowed" => true,
-				"depends_on" => array (),
-				"always_load_in_tables"=>false 
-		) ) );
-
-		MetaModel::Init_AddAttribute ( new AttributeTemplateHTML ( "text", array (
-				"allowed_values" => null,
-				"sql" => "text",
-				"default_value" => null,
-				"is_null_allowed" => true,
-				"depends_on" => array () 
-		) ) );
-
-		MetaModel::Init_AddAttribute( new AttributeEnum("attachment", 
-			array(
-				"allowed_values"=>new ValueSetEnum("yes,no"), 
-				"display_style"=>'radio_horizontal', 
-				"sql"=>'attachment', 
-				"default_value"=>'no', 
-				"is_null_allowed"=>false, 
-				"depends_on"=>array(), 
-				"always_load_in_tables"=>false
-		) ) );
-
-		//Fallback bei Rocketchat?
-		MetaModel::Init_AddAttribute (new AttributeTemplateHTML("att_fallback", array(
-				"allowed_values"=>null, 
-				"sql"=>"att_fallback", 
-				"default_value"=>null, 
-				"is_null_allowed"=>true, 
-				"depends_on"=>array()
-		) ) );
-
-		MetaModel::Init_AddAttribute ( new AttributeTemplateString ( "att_title", array (
-				"allowed_values"=>null, 
-				"sql"=>"att_title", 
-				"default_value"=>null, 
-				"is_null_allowed"=>true, 
-				"depends_on"=>array()
-		) ) );
-		MetaModel::Init_AddAttribute(new AttributeOQL("att_title_link", array(
-			"allowed_values"=>null, 
-			"sql"=>"att_title_link", 
-			"default_value"=>null, 
-			"is_null_allowed"=>true, 
-			"depends_on"=>array()
-		) ) );
-		MetaModel::Init_AddAttribute ( new AttributeString ( "att_color", array (
-				"allowed_values" => null,
-				"sql" => "att_color",
-				"default_value" => "",
-				"is_null_allowed" => true,
-				"depends_on" => array (),
-				"always_load_in_tables"=>false,
-				"validation_pattern" => "^#([A-Fa-f0-9]{6}|[A-Fa-f0-9]{3})$"
-		) ) );
-		MetaModel::Init_AddAttribute ( new AttributeTemplateHTML ( "att_text", array (
-				"allowed_values" => null,
-				"sql" => "att_text",
-				"default_value" => null,
-				"is_null_allowed" => true,
-				"depends_on" => array () 
-		) ) );
-
-		// Init displays
-
-		// Attributes to be displayed for the complete details view
-		MetaModel::Init_SetZListItems ( 'details', array (
-			0 => 'trigger_list',
-			'col:col1' => array (
-				'fieldset:ActionWebhookNotification:baseinfo' => array (
-					0 => 'name',
-					1 => 'description',
-					2 => 'status',
-				),
-				'fieldset:ActionWebhookNotification:urlinfo' => array (
-					0 => 'webrequest_url',
-					1 => 'channel',
-					2 => 'bot_alias',
-				),
-				'fieldset:ActionWebhookNotification:standard' => array(
-					0 => 'text',
-				),
-			),
-			'col:col2' => array(
-				'fieldset:ActionWebhookNotification:attachment' => array(
-					0 => 'attachment',
-					1 => 'att_title',
-					2 => 'att_title_link',
-					3 => 'att_color',
-					4 => 'att_text',
-					5 => 'att_fallback',
-				),
-			)		
-		) );
-		// Attributes to be displayed for a list view
-		MetaModel::Init_SetZListItems ( 'list', array (
-				'name',
-				'finalclass',
-				'status',
-				'webrequest_url',
-				'channel',
-				'bot_alias', 
-		) );
-		// Attributes used as criteriaa of the std search form
-		MetaModel::Init_SetZListItems ( 'standard_search', array (
-				'name',
-				'finalclass',
-				'description',
-				'status',
-				'webrequest_url' 
-		) );
-		// MetaModel::Init_SetZListItems('advanced_search', array('name')); // Criteria of the advanced search form
-	}
-	*/
-
-	protected function prepareWebRequest($url, $aPostParam){
-
-		$oWebReq = new WebRequest($url);
-		//Initiate cURL.
-		//$ch = curl_init($url);
-
-		$aCurlOptions = array(
-			CURLOPT_RETURNTRANSFER => true,
-			CURLOPT_POST => 1,
-			CURLOPT_HTTPHEADER => array(
-				'Content-Type: application/json'
-			),
-			CURLOPT_CONNECTTIMEOUT => MetaModel::GetModuleSetting('itomig-webhook-integration', 'timeout', 5),
-			CURLOPT_POSTFIELDS => json_encode($aPostParam)
-		);
-		if (MetaModel::GetModuleSetting('itomig-webhook-integration', 'certificate_check', true)) {
-			$aCurlOptions[CURLOPT_SSL_VERIFYPEER] = 1;
-			$aCurlOptions[CURLOPT_SSL_VERIFYHOST] = 2;
-		} else {
-			// no certificate checks
-			$aCurlOptions[CURLOPT_SSL_VERIFYPEER] = 0;
-			$aCurlOptions[CURLOPT_SSL_VERIFYHOST] = 0;
-		}
-		if (($sCertFile = MetaModel::GetModuleSetting( 'itomig-webhook-integration', 'ca_certificate_file', '')) != '') {
-			$aCurlOptions[CURLOPT_SSLCERT] = $sCertFile; // The name of a file containing a PEM formatted certificate.
-		}
-		$oWebReq->setOptArray($aCurlOptions);
-
-		return $oWebReq;
-	}
-
-	/**
-	 * Create a link to an opbejct by an OQL
-	 * @param sOqlAttCode String Attribute Code to the OQL Query
-	 * @param aArgs array Context Arguments
-	 * @return String link to the object or null
-	 */
-	protected function GetObjectLink($sOqlAttCode, $aArgs){
-		$sOQL = $this->Get($sOqlAttCode);
-		if (!isset($sOQL) || strlen($sOQL) == '') return '';
-		try{
-			$oSearch = DBObjectSearch::FromOQL($sOQL);
-			$oSearch->AllowAllData();
-		}
-		catch (OQLException $e)
-		{
-			$this->m_aWebrequestErrors[] = "query syntax error for recipient '$sOqlAttCode'";
-			return $e->getMessage();
-		}
-		$oSet = new DBObjectSet($oSearch, array() /* order */, $aArgs);
-		if($oSet->Count() > 1){
-			IssueLog::Warning("ITOMIG Webhook Integration - Multiple results for OQL '$sOqlAttCode'. Just link the first object.");
-			//Just Take first
-			$sClass = $oSet->GetClass();
-			$oObj = $oSet->Fetch();
-			return ApplicationContext::MakeObjectUrl($sClass, $oObj->GetKey(), null, true);
-		}
-		else if ($oSet->Count() > 0){
-			$sClass = $oSet->GetClass();
-			$oObj = $oSet->Fetch();
-			return ApplicationContext::MakeObjectUrl($sClass, $oObj->GetKey(), null, true);
-		}
-		else{
-			$this->m_aWebrequestErrors[] = "No result for OQL '$sOqlAttCode'";
-			return null;
-		}
-	}
-
-	protected function preparePostData(&$oLog){
-		$aPostParams_raw = array(
-			'sWebhookChannel' => $this->Get('channel'), 
-			'sBotAlias' => $this->Get('bot_alias'), 
-			'sSendAttachment' => $this->Get('attachment'), 
-			'sText' => MetaModel::ApplyParams($this->Get("text"), $aContextArgs), 
-			'sAttTitle' => MetaModel::ApplyParams($this->Get("att_title"), $aContextArgs), 
-			'sAttTitleLink' => $this->GetObjectLink('att_title_link', $aContextArgs), 
-			'sAttColor' => $this->Get('att_color'), 
-			'sAttText' => MetaModel::ApplyParams($this->Get("att_text"), $aContextArgs), 
-			'sAttFallback' => MetaModel::ApplyParams($this->Get("att_fallback"), $aContextArgs), 
-		);
-		return $aPostParams_raw;
-	}
-
-}
-
-
-class _ActionSlackNotification extends _ActionWebhookNotification {
-	/**
-	public static function Init() {
-		$aParams = array (
-				"category" => "core/cmdb,application",
-				"key_type" => "autoincrement",
-				"name_attcode" => "name",
-				"state_attcode" => "",
-				"reconc_keys" => array (
-						'name' 
-				),
-				"db_table" => "priv_salck_notification",
-				"db_key_field" => "id",
-				"db_finalclass_field" => "",
-				"display_template" => "" 
-		);
-		MetaModel::Init_Params ( $aParams );
-		MetaModel::Init_InheritAttributes ();
-		
-		//Init Attributes
-
-		// Init displays
-
-		// Attributes to be displayed for the complete details view
-		MetaModel::Init_SetZListItems ( 'details', array (
-			0 => 'trigger_list',
-			'col:col1' => array (
-				'fieldset:ActionWebhookNotification:baseinfo' => array (
-					0 => 'name',
-					1 => 'description',
-					2 => 'status',
-				),
-				'fieldset:ActionWebhookNotification:urlinfo' => array (
-					0 => 'webrequest_url',
-					1 => 'channel',
-					2 => 'bot_alias',
-				),
-				'fieldset:ActionWebhookNotification:standard' => array(
-					0 => 'text',
-				),
-			),
-			'col:col2' => array(
-				'fieldset:ActionWebhookNotification:attachment' => array(
-					0 => 'attachment',
-					1 => 'att_title',
-					2 => 'att_title_link',
-					3 => 'att_color',
-					4 => 'att_text',
-					5 => 'att_fallback',
-				),
-			)		
-		) );
-		// Attributes to be displayed for a list view
-		MetaModel::Init_SetZListItems ( 'list', array (
-				'name',
-				'status',
-				'webrequest_url',
-				'channel',
-				'bot_alias', 
-		) );
-		// Attributes used as criteriaa of the std search form
-		MetaModel::Init_SetZListItems ( 'standard_search', array (
-				'name',
-				'description',
-				'status',
-				'webrequest_url' 
-		) );
-		// MetaModel::Init_SetZListItems('advanced_search', array('name')); // Criteria of the advanced search form
-	}
-	*/
-
-	protected function preparePostData(&$oLog){
-		$aPostParams_raw = parent::preparePostData($oLog);
-
-		$slackData = array();
-		$slackData['mrkdwn'] = true;
-
-		if (isset ( $aPostParams_raw['sText'] )){
-			$aPostParams_raw['sText'] = $this->prepareTextForSlack($aPostParams_raw['sText']);
-			$slackData['text'] = $aPostParams_raw['sText'];
-		}
-		if (isset ( $aPostParams_raw['sWebhookChannel'] )){
-			$slackData['channel'] = $aPostParams_raw['sWebhookChannel'];
-		}
-		if (isset ( $aPostParams_raw['sBotAlias'] )){
-			$slackData['username'] = $aPostParams_raw['sBotAlias'];
-		}
-		if (isset ( $aPostParams_raw['sSendAttachment'] ) 
-			&& ($aPostParams_raw['sSendAttachment'] === 'yes' || $aPostParams_raw['sSendAttachment'] === 'Ja')){
-			$att_params = array();
-			if (isset ( $aPostParams_raw['sAttTitle'] )){
-				$att_params['title'] = $aPostParams_raw['sAttTitle'];
-			}
-			if (isset ( $aPostParams_raw['sAttTitleLink'] )){
-				$att_params['title_link'] = $aPostParams_raw['sAttTitleLink'];
-			}
-			if (isset ( $aPostParams_raw['sAttColor'] )){
-				$att_params['color'] = $aPostParams_raw['sAttColor'];
-			}
-			if (isset ( $aPostParams_raw['sAttText'] )){
-				$aPostParams_raw['sAttText'] = $this->prepareTextForSlack($aPostParams_raw['sAttText']);
-				$att_params['text'] = $aPostParams_raw['sAttText'];
-				$att_params['mrkdwn_in'] = array("text");
-			}
-			if (isset ( $aPostParams_raw['sAttFallback'] )){
-				$aPostParams_raw['sAttFallback'] = $this->prepareTextForSlack($aPostParams_raw['sAttFallback']);
-				$att_params['fallback'] = $aPostParams_raw['sAttFallback'];
-			}
-			$slackData['attachments'][] = $att_params;
-		}
-		$oLog->Set ( 'content', "POST Data: \n" . print_r($slackData,true) );
-		return $slackData;
-	}
-
-	/**
-	 * Transform html to slack markdown language
-	 * @param sText String HTML text
-	 * @return String markdown text
-	 */
-	private function prepareTextForSlack($sText){
-		//convert html to slack markdown
-		if(!empty($sText)){
-			$sText = strip_tags($sText, '<h1><h2><h3><br><strong><em><del><li><code><pre><a></a>');
-	        $sText = str_replace(array('<br />', '<br>'), "\n", $sText);
-	        $sText = str_replace(array('<h1>', '</h1>'), array('*', '*'), $sText);
-	        $sText = str_replace(array('<h2>', '</h2>'), array('*', '*'), $sText);
-	        $sText = str_replace(array('<h3>', '</h3>'), array('*', '*'), $sText);
-	        $sText = str_replace(array('<strong>', '</strong>'), array('*', '*'), $sText);
-	        $sText = str_replace(array('<em>', '</em>'), array('_', '_'), $sText);
-	        $sText = str_replace(array('<del>', '</del>'), array('~', '~'), $sText);
-	        $sText = str_replace(array('<li>', '</li>'), array('â€¢', ''), $sText);
-	        $sText = str_replace(array('<code>', '</code>'), array('`', '`'), $sText);
-	        $sText = str_replace(array('<pre>', '</pre>'), array('```', '```'), $sText);
-
-	        preg_match_all('/<a href=\"(.*?)\">(.*?)<\/a>/i', $sText, $res);
-	        for($i = 0; $i < count($res[0]); $i++) {
-	            $sText = str_replace($res[0][$i], '<'.$res[1][$i].'|'.$res[2][$i].'>', $sText);
-	        }
-	    }
-		return $sText;
-	}
-
-}
-
-class _ActionRocketChatNotification extends _ActionWebhookNotification {
-	/**
-	public static function Init() {
-		$aParams = array (
-				"category" => "core/cmdb,application",
-				"key_type" => "autoincrement",
-				"name_attcode" => "name",
-				"state_attcode" => "",
-				"reconc_keys" => array (
-						'name' 
-				),
-				"db_table" => "priv_rocket_notification",
-				"db_key_field" => "id",
-				"db_finalclass_field" => "",
-				"display_template" => "" 
-		);
-		MetaModel::Init_Params ( $aParams );
-		MetaModel::Init_InheritAttributes ();
-		
-		//Init Attributes
-
-		// Init displays
-
-		// Attributes to be displayed for the complete details view
-		MetaModel::Init_SetZListItems ( 'details', array (
-			0 => 'trigger_list',
-			'col:col1' => array (
-				'fieldset:ActionWebhookNotification:baseinfo' => array (
-					0 => 'name',
-					1 => 'description',
-					2 => 'status',
-				),
-				'fieldset:ActionWebhookNotification:urlinfo' => array (
-					0 => 'webrequest_url',
-					1 => 'channel',
-					2 => 'bot_alias',
-				),
-				'fieldset:ActionWebhookNotification:standard' => array(
-					0 => 'text',
-				),
-			),
-			'col:col2' => array(
-				'fieldset:ActionWebhookNotification:attachment' => array(
-					0 => 'attachment',
-					1 => 'att_title',
-					2 => 'att_title_link',
-					3 => 'att_color',
-					4 => 'att_text',
-					5 => 'att_fallback',
-				),
-			)		
-		) );
-		// Attributes to be displayed for a list view
-		MetaModel::Init_SetZListItems ( 'list', array (
-				'name',
-				'status',
-				'webrequest_url',
-				'channel',
-				'bot_alias', 
-		) );
-		// Attributes used as criteriaa of the std search form
-		MetaModel::Init_SetZListItems ( 'standard_search', array (
-				'name',
-				'description',
-				'status',
-				'webrequest_url' 
-		) );
-		// MetaModel::Init_SetZListItems('advanced_search', array('name')); // Criteria of the advanced search form
-	}
-	*/
-
-	protected function preparePostData(&$oLog){
-		$aPostParams_raw = parent::preparePostData($oLog);
-		$rocketData = array();
-		//$rocketData['mrkdwn'] = true;
-
-		if (isset ( $aPostParams_raw['sText'] )){
-			$aPostParams_raw['sText'] = $this->prepareTextForRocket($aPostParams_raw['sText']);
-			$rocketData['text'] = $aPostParams_raw['sText'];
-		}
-		if (isset ( $aPostParams_raw['sWebhookChannel'] )){
-			$rocketData['channel'] = $aPostParams_raw['sWebhookChannel'];
-		}
-		if (isset ( $aPostParams_raw['sBotAlias'] )){
-			$rocketData['username'] = $aPostParams_raw['sBotAlias'];
-		}
-		if (isset ( $aPostParams_raw['sSendAttachment'] ) 
-			&& ($aPostParams_raw['sSendAttachment'] === 'yes' || $aPostParams_raw['sSendAttachment'] === 'Ja')){
-			$att_params = array();
-			if (isset ( $aPostParams_raw['sAttTitle'] )){
-				$att_params['title'] = $aPostParams_raw['sAttTitle'];
-			}
-			if (isset ( $aPostParams_raw['sAttTitleLink'] )){
-				$att_params['title_link'] = $aPostParams_raw['sAttTitleLink'];
-			}
-			if (isset ( $aPostParams_raw['sAttColor'] )){
-				$att_params['color'] = $aPostParams_raw['sAttColor'];
-			}
-			if (isset ( $aPostParams_raw['sAttText'] )){
-				$aPostParams_raw['sAttText'] = $this->prepareTextForRocket($aPostParams_raw['sAttText']);
-				$att_params['text'] = $aPostParams_raw['sAttText'];
-				//$att_params['mrkdwn_in'] = array("text");
-			}
-			if (isset ( $aPostParams_raw['sAttFallback'] )){
-				$aPostParams_raw['sAttFallback'] = $this->prepareTextForRocket($aPostParams_raw['sAttFallback']);
-				$att_params['fallback'] = $aPostParams_raw['sAttFallback'];
-			}
-			$rocketData['attachments'][] = $att_params;
-		}
-		$oLog->Set ( 'content', "POST Data: \n" . print_r($rocketData,true) );
-		return $rocketData;
-	}
-
-	/**
-	 * Transform html to rocket markdown language
-	 * @param sText String HTML text
-	 * @return String markdown text
-	 */
-	private function prepareTextForRocket($sText){
-		//convert html to slack markdown
-		if(!empty($sText)){
-			$sText = strip_tags($sText, '<h1><h2><h3><br><strong><em><del><li><code><pre><a></a>');
-	        $sText = str_replace(array('<br />', '<br>'), "\n", $sText);
-	        $sText = str_replace(array('<h1>', '</h1>'), array('**', '**'), $sText);
-	        $sText = str_replace(array('<h2>', '</h2>'), array('**', '**'), $sText);
-	        $sText = str_replace(array('<h3>', '</h3>'), array('**', '**'), $sText);
-	        $sText = str_replace(array('<strong>', '</strong>'), array('**', '**'), $sText);
-	        $sText = str_replace(array('<em>', '</em>'), array('__', '__'), $sText);
-	        $sText = str_replace(array('<del>', '</del>'), array('~', '~'), $sText);
-	        $sText = str_replace(array('<li>', '</li>'), array('* ', ''), $sText);
-	        $sText = str_replace(array('<code>', '</code>'), array('`', '`'), $sText);
-	        $sText = str_replace(array('<pre>', '</pre>'), array('`', '`'), $sText);
-
-	        preg_match_all('/<a href=\"(.*?)\">(.*?)<\/a>/i', $sText, $res);
-	        for($i = 0; $i < count($res[0]); $i++) {
-	            $sText = str_replace($res[0][$i], '['.$res[2][$i].']('.$res[1][$i].')', $sText);
-	        }
-	    }
-		return $sText;
-	}
-
 }
 
 ?>
