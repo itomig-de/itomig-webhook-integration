@@ -7,18 +7,31 @@
  */
 
 Dict::Add('EN US', 'English', 'English', array(
+	// Class Action EventNotificationWebrequestNotification
+		'Class:EventNotificationWebrequestNotification' => 'Web Request Event',
+		'Class:EventNotificationWebrequestNotification+' => '',
+		'Class:EventNotificationWebrequestNotification/Attribute:webrequest_url' => 'URL',
+		'Class:EventNotificationWebrequestNotification/Attribute:webrequest_url+' => 'Requested URL',
+		'Class:EventNotificationWebrequestNotification/Attribute:content' => 'Content',
+		'Class:EventNotificationWebrequestNotification/Attribute:content+' => 'Request content',
+		'Class:EventNotificationWebrequestNotification/Attribute:webrequest_finalclass' => 'Web request type',
+		'Class:EventNotificationWebrequestNotification/Attribute:webrequest_finalclass+' => '',
+		'Class:EventNotificationWebrequestNotification/Attribute:response' => 'response',
+		'Class:EventNotificationWebrequestNotification/Attribute:response+' => 'currently not used',
+
+
+	// Class ActionWebRequest
+		'Class:ActionWebRequest' => 'Web Request',
+		'Class:ActionWebRequest+' => 'Web Request',
+		'Class:ActionWebRequest/Attribute:webrequest_url' => 'URL',
+		'Class:ActionWebRequest/Attribute:webrequest_url+' => 'URL to request',
+
+
+	// Class ActionWebhookNotification
 		'Class:ActionWebhookNotification' => 'Webhook Notification',
 		'Class:ActionWebhookNotification+' => 'Send Notification to Webhook',
-		'Class:ActionWebhookNotification/Attribute:debug_trace' => 'Debug trace',
-		'Class:ActionWebhookNotification/Attribute:debug_trace+' => 'store log information for debug purpose?',
-		'Class:ActionWebhookNotification/Attribute:debug_trace/Value:yes' => 'yes',
-		'Class:ActionWebhookNotification/Attribute:debug_trace/Value:no' => 'no',
-		'Class:ActionWebhookNotification/Attribute:parameters' => 'Parameters',
-		'Class:ActionWebhookNotification/Attribute:parameters+' => '',
-		'Class:ActionWebhookNotification/Attribute:webhook_url' => 'Webhook URL',
-		'Class:ActionWebhookNotification/Attribute:webhook_url+' => ' ',
 		'Class:ActionWebhookNotification/Attribute:channel' => 'Channel or Person',
-		'Class:ActionWebhookNotification/Attribute:channel+' => '',
+		'Class:ActionWebhookNotification/Attribute:channel+' => 'Using #channel or @person',
 		'Class:ActionWebhookNotification/Attribute:bot_alias' => 'App name',
 		'Class:ActionWebhookNotification/Attribute:bot_alias+' => 'Custom sender name',
 		'Class:ActionWebhookNotification/Attribute:text' => 'Simple text',
@@ -37,30 +50,21 @@ Dict::Add('EN US', 'English', 'English', array(
 		'Class:ActionWebhookNotification/Attribute:att_text+' => 'Attachment Text with params',
 		'Class:ActionWebhookNotification/Attribute:att_fallback' => 'Attachment Fallback',
 		'Class:ActionWebhookNotification/Attribute:att_fallback+' => '',
+		
 		'ActionWebhookNotification:baseinfo' => 'General information',
 		'ActionWebhookNotification:urlinfo' => 'Webhook Connection',
 		'ActionWebhookNotification:standard' => 'Basis Message',
 		'ActionWebhookNotification:attachment' => 'Attachment',
 
 
-
-		'Class:EventNotificationWebhookNotification' => 'Webhook event',
-		'Class:EventNotificationWebhookNotification+' => '',
-		'Class:EventNotificationWebhookNotification/Attribute:webhook_url' => 'Webhook URL',
-		'Class:EventNotificationWebhookNotification/Attribute:webhook_url+' => 'called Webhook URL',
-		'Class:EventNotificationWebhookNotification/Attribute:channel' => 'Channel',
-		'Class:EventNotificationWebhookNotification/Attribute:channel+' => 'called Channel',
-		'Class:EventNotificationWebhookNotification/Attribute:response' => 'Server Response',
-		'Class:EventNotificationWebhookNotification/Attribute:response+' => '',
-		'Class:EventNotificationWebhookNotification/Attribute:bot_alias' => 'Bot alias',
-		'Class:EventNotificationWebhookNotification/Attribute:bot_alias+' => '',
-		'Class:EventNotificationWebhookNotification/Attribute:webhook_finalclass' => 'Webhook type',
-		'Class:EventNotificationWebhookNotification/Attribute:webhook_finalclass+' => '',
-
-
-
+	// Class ActionSlackNotification
 		'Class:ActionSlackNotification' => 'Slack Notification',
 		'Class:ActionSlackNotification+' => 'Send Notification to Slack Webhook',
+
+
+	// Class ActionRocketChatNotification
+		'Class:ActionRocketChatNotification' => 'Rocket Chat Notification',
+		'Class:ActionRocketChatNotification+' => 'Send Notification to Rocket Chat Webhook',		
 	
 ));
 
