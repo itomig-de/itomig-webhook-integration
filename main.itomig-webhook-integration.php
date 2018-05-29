@@ -76,8 +76,6 @@ abstract class ActionWebRequest extends ActionNotification {
 		// MetaModel::Init_SetZListItems('advanced_search', array('name')); // Criteria of the advanced search form
 	}
 
-	//Custom log
-	static protected $oWebrequestLog;
 	// array of strings explaining the issue
 	protected $m_aWebrequestErrors;
 	
@@ -89,13 +87,6 @@ abstract class ActionWebRequest extends ActionNotification {
 	public function DoExecute($oTrigger, $aContextArgs) {
 
 		$bDebugMode = MetaModel::GetModuleSetting('itomig-webhook-integration', 'debg_mode', false);
-		if($bDebugMode){
-			if(!self::$oWebrequestLog){
-				self::$oWebrequestLog = new FileLog(APPROOT.'log/webhookintegration.log');
-			}
-		} else {
-			self::$oWebrequestLog = false;
-		}
 		
 		if (MetaModel::IsLogEnabledNotification ()) {
 			$oLog = new EventNotificationWebrequestNotification ();
@@ -105,6 +96,7 @@ abstract class ActionWebRequest extends ActionNotification {
 				$oLog->Set ( 'message', 'Notification pending' );
 			}
 			$oLog->Set ( 'userinfo', UserRights::GetUser () );
+			$oLog->Set ( 'webrequest_finalclass', $this->Get ('finalclass') );
 			$oLog->Set ( 'trigger_id', $oTrigger->GetKey () );
 			$oLog->Set ( 'action_id', $this->GetKey () );
 			$oLog->Set ( 'object_id', $aContextArgs ['this->object()']->GetKey () );
@@ -128,9 +120,6 @@ abstract class ActionWebRequest extends ActionNotification {
 			if ($oLog) {
 				$oLog->Set ( 'message', 'Error: ' . $e->getMessage () );
 			}
-			if(self::$oWebrequestLog){
-				self::$oWebrequestLog->Info("Error: " . $e->getMessage());
-			}
 		}
 		if ($oLog) {
 			$oLog->DBUpdate ();
@@ -145,16 +134,13 @@ abstract class ActionWebRequest extends ActionNotification {
 	 * @return String result
 	 */
 	private function _DoExecute($oTrigger, $aContextArgs, &$oLog) {
-		if(self::$oWebrequestLog){
-			self::$oWebrequestLog->Info("_DoExecute");
-		}
-		
 		$sPreviousUrlMaker = ApplicationContext::SetUrlMakerClass ();
 		try{
+			$this->m_aWebrequestErrors = array();
 			// Get URL
 			$sWebrequestURL = $this->Get("webrequest_url");
 			if (!is_null($oLog)){
-				$oLog->Set('webhook_url',$sWebrequestURL);
+				$oLog->Set('webrequest_url',$sWebrequestURL);
 			}
 			// pepare Post data depending on chat instance (Slack or Rocketchat)
 			$aPostParams = $this->preparePostData($oLog);
@@ -164,59 +150,39 @@ abstract class ActionWebRequest extends ActionNotification {
 			throw $e;
 		}
 		ApplicationContext::SetUrlMakerClass ( $sPreviousUrlMaker );
-		
-		if ($this->IsBeingTested ()) {
-			$sRes = "TEST - WebRequest Notification Action";
-			if(self::$oWebrequestLog){
-				self::$oWebrequestLog->Info ( "TEST mode: Set message to: " . $sRes );
-			}
-			if($oLog){
-				$oLog->Set('message', $sRes );
-			}
-		} 
-		else { // "enabled"
-			if(self::$oWebrequestLog){
-				self::$oWebrequestLog->Info ('Starting webhook request.');
-				self::$oWebrequestLog->Info ('URL: ' . $sWebrequestURL);
-				self::$oWebrequestLog->Info ('Post Data: ' . print_r($aPostParams, true));
-			}
-			$oWebReq = $this->prepareWebRequest($sWebrequestURL,$aPostParams);
-			$iRes = $oWebReq->Send($aErrors, false, $oLog);
-			if(self::$oWebrequestLog){
-				self::$oWebrequestLog->Info("Status: ".$iRes);
-				if($aErrors && is_array($aErrors)){
-					if(is_array($aErrors['httpResponse'])){
-						self::$oWebrequestLog->Info("HTTP Response: ".implode(', ', $aIssues['httpResponse']));
-					}
-					else{
-						self::$oWebrequestLog->Info("Errors: ".implode(', ', $aErrors));
-					}
+		if(empty($this->m_aWebrequestErrors))
+		{
+			if ($this->IsBeingTested ()) {
+				return "WebRequest Notification Action";
+			} 
+			else { // "enabled" 
+				$oWebReq = $this->prepareWebRequest($sWebrequestURL,$aPostParams);
+				$iRes = $oWebReq->Send($aIssues, false, $oLog);
+				switch ($iRes)
+				{
+					case WEBREQUEST_SEND_OK:
+						return "Sent";
+
+					case WEBREQUEST_SEND_PENDING:
+						return "Pending";
+
+					case WEBREQUEST_SEND_ERROR:
+						if(is_array($aIssues['httpResponse'])){
+							return "Error - HTTP Response: ".implode(', ', $aIssues['httpResponse']);
+						}
+						return "Errors: ".implode(', ', $aIssues);
 				}
 			}
-
-			switch ($iRes)
-			{
-				case EMAIL_SEND_OK:
-					return "Sent";
-
-				case EMAIL_SEND_PENDING:
-					return "Pending";
-
-				case EMAIL_SEND_ERROR:
-					if(is_array($aErrors['httpResponse'])){
-						return "Error - HTTP Response: ".implode(', ', $aIssues['httpResponse']);
-					}
-					return "Errors: ".implode(', ', $aErrors);
-			}
+		}
+		else
+		{
+			return "Errors: " . implode(', ', $this->m_aWebrequestErrors);
 		}
 	}
 
 	protected function prepareWebRequest($url, $aPostParam){
 
 		$oWebReq = new WebRequest($url);
-		//Initiate cURL.
-		//$ch = curl_init($url);
-
 		$aCurlOptions = array(
 			CURLOPT_RETURNTRANSFER => true,
 			CURLOPT_POST => 1,
@@ -242,7 +208,7 @@ abstract class ActionWebRequest extends ActionNotification {
 		return $oWebReq;
 	}
 
-	abstract protected function preparePostData($aPostParams_raw);
+	abstract protected function preparePostData(&$oLog);
 }
 
 
@@ -272,7 +238,7 @@ class EventNotificationWebrequestNotification extends EventNotification {
 				"is_null_allowed" => true,
 				"depends_on" => array () 
 		) ) );
-		MetaModel::Init_AddAttribute ( new AttributeText ( "çontent", array (
+		MetaModel::Init_AddAttribute ( new AttributeText ( "content", array (
 				"allowed_values" => null,
 				"sql" => "content",
 				"default_value" => null,
@@ -305,7 +271,8 @@ class EventNotificationWebrequestNotification extends EventNotification {
 				'action_id',
 				'object_id',
 				'webrequest_url',
-				'content'
+				'content',
+				'response'
 		
 		) ); // Attributes to be displayed for the complete details
 		
@@ -342,38 +309,42 @@ class WebRequest{
 
 	public function SendSynchronous(&$aIssues, $oLog = null, $oWebhookLog = null){
 		//Execute the request
-		$ch = curl_init($this->sURL);
-		curl_setopt_array($ch, $this->aOptions);
-		$sContent = curl_exec($ch);
+		try{
+			$ch = curl_init($this->sURL);
+			curl_setopt_array($ch, $this->aOptions);
+			$sContent = curl_exec($ch);
 
-		$sHttpStatus = curl_getinfo ( $ch, CURLINFO_HTTP_CODE );
-		$sErrMessage = '';
-		
-		// Check for errors and display the error message
-		if ($iErrno = curl_errno ( $ch )) {
-			$sErrMessage = curl_error ( $ch );
-			if($oWebhookLog){
-				$oWebhookLog->Error("cURL error ({$iErrno}):\n {$sErrMessage}");
+			$sHttpStatus = curl_getinfo ( $ch, CURLINFO_HTTP_CODE );
+			$sErrMessage = '';
+			
+			// Check for errors and display the error message
+			if ($iErrno = curl_errno ( $ch )) {
+				$sErrMessage = curl_error ( $ch );
+				$aResult->Errno = $iErrno;
+				$aResult->ErrMessage = $sErrMessage;
 			}
-			$aResult->Errno = $iErrno;
-			$aResult->ErrMessage = $sErrMessage;
-		}
-		
-		curl_close ( $ch );
+			
+			curl_close ( $ch );
 
-		$aIssues = array(
-			'httpResponse' => array(
-				'status' => $sHttpStatus,
-				'content' => $sContent,
-				'errno' => $iErrno,
-				'errmsg' => $sErrMessage
-			)
-		);
-		if (($iErrno == 0) && ($sHttpStatus == 200))
-		{
-			return WEBREQUEST_SEND_OK;
-		} 
-		else {
+			$aIssues = array(
+				'httpResponse' => array(
+					'status' => $sHttpStatus,
+					'content' => $sContent,
+					'errno' => $iErrno,
+					'errmsg' => $sErrMessage
+				)
+			);
+			if (($iErrno == 0) && ($sHttpStatus == 200))
+			{
+				return WEBREQUEST_SEND_OK;
+			} 
+			else {
+				return WEBREQUEST_SEND_ERROR;
+			}
+		}
+		catch(Exception $e) {
+			IssueLog::Error('ITOMIG Webhook Integration - ' . $e->getMessage());
+			$aIssues = array($e->getMessage());
 			return WEBREQUEST_SEND_ERROR;
 		}
 	}
@@ -397,7 +368,7 @@ class WebRequest{
 	{
 		if ($bForceSynchronous)
 		{
-			return $this->SendSynchronous($oLog, $oWebhookLog);
+			return $this->SendSynchronous($aIssues, $oLog, $oWebhookLog);
 		}
 		else{
 			$bConfigASYNC = MetaModel::GetModuleSetting('itomig-webhook-integration', 'asynchronous', false);
@@ -413,6 +384,63 @@ class WebRequest{
 
 	}
 
+}
+
+class AsyncSendRequest extends AsyncTask
+{
+	public static function Init()
+	{
+		$aParams = array
+		(
+			"category" => "core/cmdb",
+			"key_type" => "autoincrement",
+			"name_attcode" => "created",
+			"state_attcode" => "",
+			"reconc_keys" => array(),
+			"db_table" => "priv_async_send_request",
+			"db_key_field" => "id",
+			"db_finalclass_field" => "",
+			"display_template" => "",
+		);
+		MetaModel::Init_Params($aParams);
+		MetaModel::Init_InheritAttributes();
+
+		MetaModel::Init_AddAttribute(new AttributeLongText("request", array("allowed_values"=>null, "sql"=>"request", "default_value"=>null, "is_null_allowed"=>false, "depends_on"=>array())));
+
+	}
+
+	static public function AddToQueue($oWebRequest, $oLog)
+	{
+		$oNew = MetaModel::NewObject(__class__);
+		if ($oLog)
+		{
+			$oNew->Set('event_id', $oLog->GetKey());
+		}
+		$oNew->Set('request', serialize($oWebRequest));
+		$oNew->DBInsert();
+	}
+
+	public function DoProcess()
+	{
+		$oWebRequest = unserialize($this->Get('request'));
+
+		$iRes = $oWebRequest->Send($aIssues, true);
+		
+		switch ($iRes)
+		{
+		case WEBREQUEST_SEND_OK:
+			return "Sent";
+
+		case WEBREQUEST_SEND_PENDING:
+			return "Bug - the request should be sent in synchronous mode";
+
+		case WEBREQUEST_SEND_ERROR:
+			if(is_array($aIssues['httpResponse'])){
+				return "Failed - HTTP Response: ".implode(', ', $aIssues['httpResponse']);
+			}
+			return "Failed: ".implode(', ', $aIssues);
+		}
+	}
 }
 
 /**
@@ -440,15 +468,6 @@ abstract class ActionWebhookNotification extends ActionWebRequest {
 		MetaModel::Init_InheritAttributes ();
 		
 		//Init Attributes
-
-		MetaModel::Init_AddAttribute ( new AttributeURL ( "webhook_url", array (
-				"allowed_values" => null,
-				"sql" => "webhook_url",
-				"default_value" => null,
-				"target" => "_blank",
-				"is_null_allowed" => false,
-				"depends_on" => array ()
-		) ) );
 
 		MetaModel::Init_AddAttribute ( new AttributeString ( "channel", array (
 				"allowed_values" => null,
@@ -539,7 +558,7 @@ abstract class ActionWebhookNotification extends ActionWebRequest {
 					2 => 'status',
 				),
 				'fieldset:ActionWebhookNotification:urlinfo' => array (
-					0 => 'webhook_url',
+					0 => 'webrequest_url',
 					1 => 'channel',
 					2 => 'bot_alias',
 				),
@@ -563,7 +582,7 @@ abstract class ActionWebhookNotification extends ActionWebRequest {
 				'name',
 				'finalclass',
 				'status',
-				'webhook_url',
+				'webrequest_url',
 				'channel',
 				'bot_alias', 
 		) );
@@ -573,7 +592,7 @@ abstract class ActionWebhookNotification extends ActionWebRequest {
 				'finalclass',
 				'description',
 				'status',
-				'webhook_url' 
+				'webrequest_url' 
 		) );
 		// MetaModel::Init_SetZListItems('advanced_search', array('name')); // Criteria of the advanced search form
 	}
@@ -624,14 +643,12 @@ abstract class ActionWebhookNotification extends ActionWebRequest {
 		}
 		catch (OQLException $e)
 		{
-			if(self::$oWebhookLog){
-				self::$oWebhookLog->Error("query syntax error for OQL '$sOqlAttCode': " . $e->getMessage());
-			}
-			return null;
+			$this->m_aWebrequestErrors[] = "query syntax error for recipient '$sOqlAttCode'";
+			return $e->getMessage();
 		}
 		$oSet = new DBObjectSet($oSearch, array() /* order */, $aArgs);
 		if($oSet->Count() > 1){
-			self::$oWebhookLog->Warning("Multiple results for OQL '$sOqlAttCode'. Just link the first object.");
+			IssueLog::Warning("ITOMIG Webhook Integration - Multiple results for OQL '$sOqlAttCode'. Just link the first object.");
 			//Just Take first
 			$sClass = $oSet->GetClass();
 			$oObj = $oSet->Fetch();
@@ -643,9 +660,7 @@ abstract class ActionWebhookNotification extends ActionWebRequest {
 			return ApplicationContext::MakeObjectUrl($sClass, $oObj->GetKey(), null, true);
 		}
 		else{
-			if(self::$oWebhookLog){
-				self::$oWebhookLog->Warning("No result for OQL '$sOqlAttCode'");
-			}
+			$this->m_aWebrequestErrors[] = "No result for OQL '$sOqlAttCode'";
 			return null;
 		}
 	}
@@ -665,92 +680,6 @@ abstract class ActionWebhookNotification extends ActionWebRequest {
 		return $aPostParams_raw;
 	}
 
-}
-
-class EventNotificationWebhookNotification extends EventNotification {
-	public static function Init() {
-		$aParams = array (
-				"category" => "core/cmdb,view_in_gui",
-				"key_type" => "autoincrement",
-				"name_attcode" => "",
-				"state_attcode" => "",
-				"reconc_keys" => array (),
-				"db_table" => "priv_event_webhook_notify",
-				"db_key_field" => "id",
-				"db_finalclass_field" => "",
-				"display_template" => "",
-				"order_by_default" => array (
-						'date' => false 
-				) 
-		);
-		MetaModel::Init_Params ( $aParams );
-		MetaModel::Init_InheritAttributes ();
-		
-		MetaModel::Init_AddAttribute ( new AttributeText ( "webhook_url", array (
-				"allowed_values" => null,
-				"sql" => "webhook_url",
-				"default_value" => null,
-				"is_null_allowed" => true,
-				"depends_on" => array () 
-		) ) );
-		MetaModel::Init_AddAttribute ( new AttributeText ( "channel", array (
-				"allowed_values" => null,
-				"sql" => "channel",
-				"default_value" => null,
-				"is_null_allowed" => true,
-				"depends_on" => array () 
-		) ) );
-		MetaModel::Init_AddAttribute ( new AttributeText ( "bot_alias", array (
-				"allowed_values" => null,
-				"sql" => "bot_alias",
-				"default_value" => null,
-				"is_null_allowed" => true,
-				"depends_on" => array () 
-		) ) );
-		MetaModel::Init_AddAttribute ( new AttributeText ( "webhook_finalclass", array (
-				"allowed_values" => null,
-				"sql" => "webhook_finalclass",
-				"default_value" => null,
-				"is_null_allowed" => true,
-				"depends_on" => array () 
-		) ) );
-		
-		MetaModel::Init_AddAttribute ( new AttributeText ( "response", array (
-				"allowed_values" => null,
-				"sql" => "response",
-				"default_value" => null,
-				"is_null_allowed" => true,
-				"depends_on" => array () 
-		) ) );
-		
-		// Display lists
-		MetaModel::Init_SetZListItems ( 'details', array (
-				'webhook_finalclass',
-				'date',
-				'userinfo',
-				'message',
-				'trigger_id',
-				'action_id',
-				'object_id',
-				'webhook_url',
-				'channel',
-				'bot_alias',
-				'response' 
-		
-		) ); // Attributes to be displayed for the complete details
-		
-		MetaModel::Init_SetZListItems ( 'list', array (
-				'date',
-				'webhook_finalclass',
-				'message',
-				'channel',
-				'bot_alias' 
-		) ); // Attributes to be displayed for a list
-			     
-		// Search criteria
-			     // MetaModel::Init_SetZListItems('standard_search', array('name')); // Criteria of the std search form
-			     // MetaModel::Init_SetZListItems('advanced_search', array('name')); // Criteria of the advanced search form
-	}
 }
 
 
@@ -786,7 +715,7 @@ class ActionSlackNotification extends ActionWebhookNotification {
 					2 => 'status',
 				),
 				'fieldset:ActionWebhookNotification:urlinfo' => array (
-					0 => 'webhook_url',
+					0 => 'webrequest_url',
 					1 => 'channel',
 					2 => 'bot_alias',
 				),
@@ -809,7 +738,7 @@ class ActionSlackNotification extends ActionWebhookNotification {
 		MetaModel::Init_SetZListItems ( 'list', array (
 				'name',
 				'status',
-				'webhook_url',
+				'webrequest_url',
 				'channel',
 				'bot_alias', 
 		) );
@@ -818,12 +747,14 @@ class ActionSlackNotification extends ActionWebhookNotification {
 				'name',
 				'description',
 				'status',
-				'webhook_url' 
+				'webrequest_url' 
 		) );
 		// MetaModel::Init_SetZListItems('advanced_search', array('name')); // Criteria of the advanced search form
 	}
 
-	protected function preparePostData($aPostParams_raw){
+	protected function preparePostData(&$oLog){
+		$aPostParams_raw = parent::preparePostData($oLog);
+
 		$slackData = array();
 		$slackData['mrkdwn'] = true;
 
@@ -860,6 +791,7 @@ class ActionSlackNotification extends ActionWebhookNotification {
 			}
 			$slackData['attachments'][] = $att_params;
 		}
+		$oLog->Set ( 'content', "POST Data: \n" . print_r($slackData,true) );
 		return $slackData;
 	}
 
@@ -925,7 +857,7 @@ class ActionRocketChatNotification extends ActionWebhookNotification {
 					2 => 'status',
 				),
 				'fieldset:ActionWebhookNotification:urlinfo' => array (
-					0 => 'webhook_url',
+					0 => 'webrequest_url',
 					1 => 'channel',
 					2 => 'bot_alias',
 				),
@@ -948,7 +880,7 @@ class ActionRocketChatNotification extends ActionWebhookNotification {
 		MetaModel::Init_SetZListItems ( 'list', array (
 				'name',
 				'status',
-				'webhook_url',
+				'webrequest_url',
 				'channel',
 				'bot_alias', 
 		) );
@@ -957,12 +889,13 @@ class ActionRocketChatNotification extends ActionWebhookNotification {
 				'name',
 				'description',
 				'status',
-				'webhook_url' 
+				'webrequest_url' 
 		) );
 		// MetaModel::Init_SetZListItems('advanced_search', array('name')); // Criteria of the advanced search form
 	}
 
-	protected function preparePostData($aPostParams_raw){
+	protected function preparePostData(&$oLog){
+		$aPostParams_raw = parent::preparePostData($oLog);
 		$rocketData = array();
 		//$rocketData['mrkdwn'] = true;
 
@@ -999,7 +932,7 @@ class ActionRocketChatNotification extends ActionWebhookNotification {
 			}
 			$rocketData['attachments'][] = $att_params;
 		}
-
+		$oLog->Set ( 'content', "POST Data: \n" . print_r($rocketData,true) );
 		return $rocketData;
 	}
 
@@ -1031,65 +964,6 @@ class ActionRocketChatNotification extends ActionWebhookNotification {
 		return $sText;
 	}
 
-}
-
-class AsyncSendRequest extends AsyncTask
-{
-	public static function Init()
-	{
-		$aParams = array
-		(
-			"category" => "core/cmdb",
-			"key_type" => "autoincrement",
-			"name_attcode" => "created",
-			"state_attcode" => "",
-			"reconc_keys" => array(),
-			"db_table" => "priv_async_send_request",
-			"db_key_field" => "id",
-			"db_finalclass_field" => "",
-			"display_template" => "",
-		);
-		MetaModel::Init_Params($aParams);
-		MetaModel::Init_InheritAttributes();
-
-		MetaModel::Init_AddAttribute(new AttributeLongText("request", array("allowed_values"=>null, "sql"=>"request", "default_value"=>null, "is_null_allowed"=>false, "depends_on"=>array())));
-		MetaModel::Init_AddAttribute(new AttributeLongText("webhooklog", array("allowed_values"=>null, "sql"=>"webhooklog", "default_value"=>null, "is_null_allowed"=>true, "depends_on"=>array())));
-
-	}
-
-	static public function AddToQueue($oWebRequest, $oLog) //TODO oWebhookLog
-	{
-		$oNew = MetaModel::NewObject(__class__);
-		if ($oLog)
-		{
-			$oNew->Set('event_id', $oLog->GetKey());
-		}
-		$oNew->Set('request', serialize($oWebRequest));
-		$oNew->DBInsert();
-	}
-
-	public function DoProcess()
-	{
-		$oWebRequest = unserialize($this->Get('request'));
-		print_r($oWebRequest);
-
-		$iRes = $oWebRequest->Send($aIssues, true);
-		
-		switch ($iRes)
-		{
-		case WEBREQUEST_SEND_OK:
-			return "Sent";
-
-		case WEBREQUEST_SEND_PENDING:
-			return "Bug - the request should be sent in synchronous mode";
-
-		case WEBREQUEST_SEND_ERROR:
-			if(is_array($aIssues['httpResponse'])){
-				return "Failed - HTTP Response: ".implode(', ', $aIssues['httpResponse']);
-			}
-			return "Failed: ".implode(', ', $aIssues);
-		}
-	}
 }
 
 ?>
