@@ -10,9 +10,6 @@ Dict::Add('DE DE', 'German', 'Deutsch', array(
 	// Class Action EventNotificationWebrequestNotification
 		'Class:EventNotificationWebrequestNotification' => 'Web Request Event',
 		'Class:EventNotificationWebrequestNotification+' => '',
-		'Class:EventNotificationWebrequestNotification/Attribute:webrequest_url' => '',
-		'Class:EventNotificationWebrequestNotification/Attribute:webrequest_url+' => '',
-
 		'Class:EventNotificationWebrequestNotification/Attribute:webrequest_url' => 'URL',
 		'Class:EventNotificationWebrequestNotification/Attribute:webrequest_url+' => 'Aufgerufene URL',
 		'Class:EventNotificationWebrequestNotification/Attribute:content' => 'Inhalt',
@@ -21,6 +18,7 @@ Dict::Add('DE DE', 'German', 'Deutsch', array(
 		'Class:EventNotificationWebrequestNotification/Attribute:webrequest_finalclass+' => '',
 		'Class:EventNotificationWebrequestNotification/Attribute:response' => 'Antwort',
 		'Class:EventNotificationWebrequestNotification/Attribute:response+' => 'z.Z. nicht verwendet',
+
 
 	// Class ActionWebRequest
 		'Class:ActionWebRequest' => 'Web Request',
@@ -67,6 +65,7 @@ Dict::Add('DE DE', 'German', 'Deutsch', array(
 	// Class ActionRocketChatNotification
 		'Class:ActionRocketChatNotification' => 'Rocket Chat Benachrichtugung',
 		'Class:ActionRocketChatNotification+' => 'Sende Benachrichtugung an einen Rocket Chat Webhook',
+		
 ));
 
 ?>
