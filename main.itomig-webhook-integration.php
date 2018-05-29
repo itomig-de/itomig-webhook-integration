@@ -75,6 +75,7 @@ abstract class ActionWebRequest extends ActionNotification {
 		) );
 		// MetaModel::Init_SetZListItems('advanced_search', array('name')); // Criteria of the advanced search form
 	}
+	
 
 	// array of strings explaining the issue
 	protected $m_aWebrequestErrors;
@@ -449,7 +450,8 @@ class AsyncSendRequest extends AsyncTask
  * @package itomig-webhook-integration
  *         
  */
-abstract class ActionWebhookNotification extends ActionWebRequest {
+abstract class _ActionWebhookNotification extends ActionWebRequest {
+	/**
 	public static function Init() {
 		$aParams = array (
 				"category" => "core/cmdb,application",
@@ -596,6 +598,7 @@ abstract class ActionWebhookNotification extends ActionWebRequest {
 		) );
 		// MetaModel::Init_SetZListItems('advanced_search', array('name')); // Criteria of the advanced search form
 	}
+	*/
 
 	protected function prepareWebRequest($url, $aPostParam){
 
@@ -683,7 +686,8 @@ abstract class ActionWebhookNotification extends ActionWebRequest {
 }
 
 
-class ActionSlackNotification extends ActionWebhookNotification {
+class _ActionSlackNotification extends _ActionWebhookNotification {
+	/**
 	public static function Init() {
 		$aParams = array (
 				"category" => "core/cmdb,application",
@@ -751,6 +755,7 @@ class ActionSlackNotification extends ActionWebhookNotification {
 		) );
 		// MetaModel::Init_SetZListItems('advanced_search', array('name')); // Criteria of the advanced search form
 	}
+	*/
 
 	protected function preparePostData(&$oLog){
 		$aPostParams_raw = parent::preparePostData($oLog);
@@ -825,7 +830,8 @@ class ActionSlackNotification extends ActionWebhookNotification {
 
 }
 
-class ActionRocketChatNotification extends ActionWebhookNotification {
+class _ActionRocketChatNotification extends _ActionWebhookNotification {
+	/**
 	public static function Init() {
 		$aParams = array (
 				"category" => "core/cmdb,application",
@@ -893,6 +899,7 @@ class ActionRocketChatNotification extends ActionWebhookNotification {
 		) );
 		// MetaModel::Init_SetZListItems('advanced_search', array('name')); // Criteria of the advanced search form
 	}
+	*/
 
 	protected function preparePostData(&$oLog){
 		$aPostParams_raw = parent::preparePostData($oLog);
