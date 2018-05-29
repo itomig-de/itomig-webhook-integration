@@ -134,7 +134,7 @@
             <item id="col:col2">
               <rank>30</rank>
               <items>
-                <item id="fieldset:Ticket:baseinfo">
+                <item id="ActionWebhookNotification:attachment">
                   <rank>10</rank>
                   <items>
                     <item id="attachment">
@@ -360,7 +360,7 @@
             <item id="col:col2">
               <rank>30</rank>
               <items>
-                <item id="fieldset:Ticket:baseinfo">
+                <item id="ActionWebhookNotification:attachment">
                   <rank>10</rank>
                   <items>
                     <item id="attachment">
@@ -579,7 +579,7 @@
             <item id="col:col2">
               <rank>30</rank>
               <items>
-                <item id="fieldset:Ticket:baseinfo">
+                <item id="ActionWebhookNotification:attachment">
                   <rank>10</rank>
                   <items>
                     <item id="attachment">
