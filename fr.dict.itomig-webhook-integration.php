@@ -30,8 +30,8 @@ Dict::Add('FR FR', 'French', 'Français', array(
 	// Class ActionWebhookNotification
 		'Class:ActionWebhookNotification' => 'Notifications du Webhook',
 		'Class:ActionWebhookNotification+' => 'envoyer des notifications au Webhook',
-		'Class:ActionWebhookNotification/Attribute:channel' => 'Canal ou personne',
-		'Class:ActionWebhookNotification/Attribute:channel+' => 'Utiliser #canal ou @personne',
+		'Class:ActionWebhookNotification/Attribute:channel' => 'Salon ou utilisateur',
+		'Class:ActionWebhookNotification/Attribute:channel+' => 'Utiliser #salon ou @utilisateur',
 		'Class:ActionWebhookNotification/Attribute:bot_alias' => 'Nom de l\'application',
 		'Class:ActionWebhookNotification/Attribute:bot_alias+' => 'Nom personnalisé de l\'application',
 		'Class:ActionWebhookNotification/Attribute:text' => 'Texte simple',
