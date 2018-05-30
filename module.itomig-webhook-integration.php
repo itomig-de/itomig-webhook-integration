@@ -5,7 +5,7 @@
 //
 //
 SetupWebPage::AddModule ( __FILE__, // Path to the current file, all other file names are relative to the directory containing this file
-'itomig-webhook-integration/18.1.0', array (
+'itomig-webhook-integration/18.3.0', array (
 		// Identification
 		//
 		'label' => 'Webhook Integration (ITOMIG GmbH)',
@@ -14,7 +14,7 @@ SetupWebPage::AddModule ( __FILE__, // Path to the current file, all other file 
 		// Setup
 		//
 		'dependencies' => array (
-			'itop-config-mgmt/2.0.0',
+			'itop-config-mgmt/2.5.0',
 		),
 		'mandatory' => false,
 		'visible' => true,
@@ -22,8 +22,8 @@ SetupWebPage::AddModule ( __FILE__, // Path to the current file, all other file 
 		// Components
 		//
 		'datamodel' => array (
-				'model.itomig-webhook-integration.php',
 				'main.itomig-webhook-integration.php',
+				'model.itomig-webhook-integration.php',
 		),
 		'webservice' => array (),
 		'data.struct' => array (
@@ -51,6 +51,9 @@ SetupWebPage::AddModule ( __FILE__, // Path to the current file, all other file 
 				'certificate_file' => '',
 				
 				'timeout' => 5,  // timeout in seconds
+
+				'asynchronous' => false,
+
 		) 
 ) );
 
