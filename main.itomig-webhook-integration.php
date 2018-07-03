@@ -283,7 +283,7 @@ abstract class ActionWebRequest extends ActionNotification {
 				$oLog->Set('webrequest_url',$sWebrequestURL);
 			}
 			// pepare post data depending on finalclass
-			$aPostParams = $this->preparePostData($oLog);
+			$aPostParams = $this->preparePostData($aContextArgs, $oLog);
 		}
 		catch (Exception $e){
 			ApplicationContext::SetUrlMakerClass ( $sPreviousUrlMaker );
@@ -355,7 +355,7 @@ abstract class ActionWebRequest extends ActionNotification {
 		return $oWebReq;
 	}
 
-	abstract protected function preparePostData(&$oLog);
+	abstract protected function preparePostData($aContextArgs, &$oLog);
 }
 
 /**
@@ -407,7 +407,7 @@ abstract class _ActionWebhookNotification extends ActionWebRequest {
 	 * @param oLog object reference to the Log Object for store information in EventNotification
 	 * @return Array contains data for request
 	 */
-	protected function preparePostData(&$oLog){
+	protected function preparePostData($aContextArgs, &$oLog){
 		$aPostParams_raw = array(
 			'sWebhookChannel' => $this->Get('channel'), 
 			'sBotAlias' => $this->Get('bot_alias'), 

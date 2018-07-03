@@ -235,9 +235,9 @@
           <static>false</static>
           <access>protected</access>
           <type>Custom</type>
-          <code><![CDATA[protected function preparePostData(&$oLog)
+          <code><![CDATA[protected function preparePostData($aContextArgs, &$oLog)
           {
-            $aPostParams_raw = parent::preparePostData($oLog);
+            $aPostParams_raw = parent::preparePostData($aContextArgs, $oLog);
 
             $slackData = array();
             $slackData['mrkdwn'] = true;
@@ -280,11 +280,11 @@
           }
           ]]></code>
         </method>
-        <method id="prepareTextForRocket">
+        <method id="prepareTextForSlack">
           <static>false</static>
           <access>private</access>
           <type>Custom</type>
-          <code><![CDATA[private function prepareTextForRocket($sText)
+          <code><![CDATA[private function prepareTextForSlack($sText)
           {
             //convert html to slack markdown
             if(!empty($sText)){
@@ -455,9 +455,9 @@
           <static>false</static>
           <access>protected</access>
           <type>Custom</type>
-          <code><![CDATA[protected function preparePostData(&$oLog)
+          <code><![CDATA[protected function preparePostData($aContextArgs, &$oLog)
           {
-            $aPostParams_raw = parent::preparePostData($oLog);
+            $aPostParams_raw = parent::preparePostData($aContextArgs, $oLog);
             $rocketData = array();
             //$rocketData['mrkdwn'] = true;
 

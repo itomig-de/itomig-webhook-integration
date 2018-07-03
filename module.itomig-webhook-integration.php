@@ -5,7 +5,7 @@
 //
 //
 SetupWebPage::AddModule ( __FILE__, // Path to the current file, all other file names are relative to the directory containing this file
-'itomig-webhook-integration/18.3.0', array (
+'itomig-webhook-integration/18.3.1', array (
 		// Identification
 		//
 		'label' => 'Webhook Integration (ITOMIG GmbH)',
