@@ -280,11 +280,11 @@
           }
           ]]></code>
         </method>
-        <method id="prepareTextForRocket">
+        <method id="prepareTextForSlack">
           <static>false</static>
           <access>private</access>
           <type>Custom</type>
-          <code><![CDATA[private function prepareTextForRocket($sText)
+          <code><![CDATA[private function prepareTextForSlack($sText)
           {
             //convert html to slack markdown
             if(!empty($sText)){
