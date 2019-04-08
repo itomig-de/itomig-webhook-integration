@@ -300,7 +300,7 @@
                   $sText = str_replace(array('<code>', '</code>'), array('`', '`'), $sText);
                   $sText = str_replace(array('<pre>', '</pre>'), array('```', '```'), $sText);
 
-                  preg_match_all('/<a href=\"(.*?)\">(.*?)<\/a>/i', $sText, $res);
+                  preg_match_all('/<\s*a.*?href\s*=\s*(?:\"|\')(.*?)(?:\"|\')[^>]*>(.*?)<\s*?\/\s*?a\s*?>/i', $sText, $res);
                   for($i = 0; $i < count($res[0]); $i++) {
                       $sText = str_replace($res[0][$i], '<'.$res[1][$i].'|'.$res[2][$i].'>', $sText);
                   }
