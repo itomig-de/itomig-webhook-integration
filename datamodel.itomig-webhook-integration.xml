@@ -288,13 +288,15 @@
           {
             //convert html to slack markdown
             if(!empty($sText)){
-              $sText = strip_tags($sText, '<h1><h2><h3><br><strong><em><del><li><code><pre><a></a>');
+              $sText = strip_tags($sText, '<h1><h2><h3><br><strong><b><em><i><del><li><code><pre><a>');
                   $sText = str_replace(array('<br />', '<br>'), "\n", $sText);
                   $sText = str_replace(array('<h1>', '</h1>'), array('*', '*'), $sText);
                   $sText = str_replace(array('<h2>', '</h2>'), array('*', '*'), $sText);
                   $sText = str_replace(array('<h3>', '</h3>'), array('*', '*'), $sText);
                   $sText = str_replace(array('<strong>', '</strong>'), array('*', '*'), $sText);
+                  $sText = str_replace(array('<b>', '</b>'), array('*', '*'), $sText);
                   $sText = str_replace(array('<em>', '</em>'), array('_', '_'), $sText);
+                  $sText = str_replace(array('<i>', '</i>'), array('_', '_'), $sText);
                   $sText = str_replace(array('<del>', '</del>'), array('~', '~'), $sText);
                   $sText = str_replace(array('<li>', '</li>'), array('â€¢', ''), $sText);
                   $sText = str_replace(array('<code>', '</code>'), array('`', '`'), $sText);
