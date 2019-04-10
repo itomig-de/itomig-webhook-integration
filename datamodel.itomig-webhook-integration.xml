@@ -299,7 +299,7 @@
                   $sText = str_replace(array('<i>', '</i>'), array('_', '_'), $sText);
                   $sText = str_replace(array('<del>', '</del>'), array('~', '~'), $sText);
                   $sText = str_replace(array('<s>', '</s>'), array('~', '~'), $sText);
-                  $sText = str_replace(array('<li>', '</li>'), array('â€¢', ''), $sText);
+                  $sText = str_replace(array('<li>', '</li>'), array('• ', ''), $sText);
                   $sText = str_replace(array('<code>', '</code>'), array('`', '`'), $sText);
                   $sText = str_replace(array('<pre>', '</pre>'), array('```', '```'), $sText);
 
