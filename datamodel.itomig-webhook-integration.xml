@@ -81,6 +81,52 @@
           <default_value/>
           <is_null_allowed>true</is_null_allowed>
         </field>
+        <field id="include_delete_button" xsi:type="AttributeEnum">
+          <values>
+            <value id="yes">yes</value>
+            <value id="no">no</value>
+          </values>
+          <sql>include_delete_button</sql>
+          <default_value>no</default_value>
+          <is_null_allowed>false</is_null_allowed>
+          <display_style>radio_horizontal</display_style>
+        </field>
+        <field id="include_modify_button" xsi:type="AttributeEnum">
+          <values>
+            <value id="yes">yes</value>
+            <value id="no">no</value>
+          </values>
+          <sql>include_modify_button</sql>
+          <default_value>no</default_value>
+          <is_null_allowed>false</is_null_allowed>
+          <display_style>radio_horizontal</display_style>
+        </field>
+        <field id="include_otheraction_buttons" xsi:type="AttributeEnum">
+          <values>
+            <value id="yes">yes</value>
+            <value id="no">no</value>
+            <value id="specific">specific</value>
+          </values>
+          <sql>include_otheraction_buttons</sql>
+          <default_value>no</default_value>
+          <is_null_allowed>false</is_null_allowed>
+          <display_style>radio_horizontal</display_style>
+        </field>
+        <field id="specific_action_buttons" xsi:type="AttributeTemplateString">
+          <sql>specific_action_buttons</sql>
+          <default_value/>
+          <is_null_allowed>true</is_null_allowed>
+        </field>
+        <field id="include_list_view" xsi:type="AttributeEnum">
+          <values>
+            <value id="yes">yes</value>
+            <value id="no">no</value>
+          </values>
+          <sql>include_list_view</sql>
+          <default_value>no</default_value>
+          <is_null_allowed>false</is_null_allowed>
+          <display_style>radio_horizontal</display_style>
+        </field>
       </fields>
       <methods>
       </methods>
@@ -237,46 +283,59 @@
           <type>Custom</type>
           <code><![CDATA[protected function preparePostData($aContextArgs, &$oLog)
           {
-            $aPostParams_raw = parent::preparePostData($aContextArgs, $oLog);
+            $aSlackData = array(
+              'type' => 'mrkdwn',
+              'text' => empty($this->Get("text")) ? "" : $this->prepareTextForSlack(MetaModel::ApplyParams($this->Get("text"), $aContextArgs))
+            );
 
-            $slackData = array();
-            $slackData['mrkdwn'] = true;
+            if (!empty($this->Get('channel'))){
+              $aSlackData['channel'] = $this->Get('channel');
+            }
+            if (!empty($this->Get('bot_alias'))){
+              $aSlackData['username'] = $this->Get('bot_alias');
+            }
+            
 
-            if (isset ( $aPostParams_raw['sText'] )){
-              $aPostParams_raw['sText'] = $this->prepareTextForSlack($aPostParams_raw['sText']);
-              $slackData['text'] = $aPostParams_raw['sText'];
+            $aSlackBlocks = array();
+
+            // Add basic text also as section
+            if($aFields = $this->GetListViewAttributes($aContextArgs)){
+              $aSlackBlocks[] = array(
+                'type' => 'section',
+                'text' => array(
+                  'type' => isset($aSlackData['type']) ? $aSlackData['type'] : 'mrkdwn',
+                  'text' => isset($aSlackData['text']) ? $aSlackData['text'] : ''
+                )
+              );
             }
-            if (isset ( $aPostParams_raw['sWebhookChannel'] )){
-              $slackData['channel'] = $aPostParams_raw['sWebhookChannel'];
+
+            // Fields from list view
+            if($aFields = $this->GetListViewAttributes($aContextArgs)){
+              $aSlackBlocks[] = array(
+                'type' => 'section',
+                'fields' => $aFields
+              );
             }
-            if (isset ( $aPostParams_raw['sBotAlias'] )){
-              $slackData['username'] = $aPostParams_raw['sBotAlias'];
+
+            // Actions
+            if($aActions = $this->GetActions($aContextArgs)){
+              $aSlackBlocks[] = array(
+                'type' => 'actions',
+                'elements' => $aActions
+              );
             }
-            if (isset ( $aPostParams_raw['sSendAttachment'] ) 
-              && ($aPostParams_raw['sSendAttachment'] === 'yes' || $aPostParams_raw['sSendAttachment'] === 'Ja')){
-              $att_params = array();
-              if (isset ( $aPostParams_raw['sAttTitle'] )){
-                $att_params['title'] = $aPostParams_raw['sAttTitle'];
-              }
-              if (isset ( $aPostParams_raw['sAttTitleLink'] )){
-                $att_params['title_link'] = $aPostParams_raw['sAttTitleLink'];
-              }
-              if (isset ( $aPostParams_raw['sAttColor'] )){
-                $att_params['color'] = $aPostParams_raw['sAttColor'];
-              }
-              if (isset ( $aPostParams_raw['sAttText'] )){
-                $aPostParams_raw['sAttText'] = $this->prepareTextForSlack($aPostParams_raw['sAttText']);
-                $att_params['text'] = $aPostParams_raw['sAttText'];
-                $att_params['mrkdwn_in'] = array("text");
-              }
-              if (isset ( $aPostParams_raw['sAttFallback'] )){
-                $aPostParams_raw['sAttFallback'] = $this->prepareTextForSlack($aPostParams_raw['sAttFallback']);
-                $att_params['fallback'] = $aPostParams_raw['sAttFallback'];
-              }
-              $slackData['attachments'][] = $att_params;
+            if(!empty($aSlackBlocks)){
+
+              $aSlackData['blocks'] = $aSlackBlocks;
             }
-            $oLog->Set ( 'content', "POST Data: \n" . print_r($slackData,true) );
-            return $slackData;
+            
+            // Attachments
+            if($aAttachments = $this->GetAttachments($aContextArgs)){
+              $aSlackData['attachments'] = $aAttachments;
+            }
+
+            $oLog->Set ( 'content', "POST Data: \n" . print_r($aSlackData,true) );
+            return $aSlackData;
           }
           ]]></code>
         </method>
@@ -309,6 +368,130 @@
                   }
               }
             return $sText;
+          }
+          ]]></code>
+        </method>
+        <method id="GetActions">
+          <static>false</static>
+          <access>private</access>
+          <type>Custom</type>
+          <code><![CDATA[private function GetActions($aContextArgs)
+          {
+            $aActionElements = array();
+            if(!empty($this->Get('include_modify_button')) && $this->Get('include_modify_button') == 'yes'){
+              $aActionElements[] = array(
+                "type" => "button",
+                "text" => array(
+                  "type" => "plain_text",
+                  "text" => "Modify"
+                ),
+                "url" => "http://localhost/itop1/pages/UI.php?operation=modify&class=UserRequest&id=1"
+              );
+            }
+
+            if(!empty($this->Get('include_delete_button')) && $this->Get('include_delete_button') == 'yes'){
+              $aActionElements[] = array(
+                "type" => "button",
+                "text" => array(
+                  "type" => "plain_text",
+                  "text" => "Delete"
+                ),
+                "url" => "http://localhost/itop1/pages/UI.php?operation=delete&class=UserRequest&id=1"
+              );
+            }
+
+            if(!empty($this->Get('include_otheraction_buttons'))){
+              switch ($this->Get('include_otheraction_buttons')) {
+                case 'yes':
+                  $aActionElements[] = array(
+                    "type" => "button",
+                    "text" => array(
+                      "type" => "plain_text",
+                      "text" => "Assign"
+                    ),
+                    "url" => "http://localhost/itop1/pages/UI.php?operation=stimulus&stimulus=ev_assign&class=UserRequest&id=1"
+                  );
+                  $aActionElements[] = array(
+                    "type" => "button",
+                    "text" => array(
+                      "type" => "plain_text",
+                      "text" => "Pending"
+                    ),
+                    "url" => "http://localhost/itop1/pages/UI.php?operation=stimulus&stimulus=ev_pending&class=UserRequest&id=1"
+                  );
+                  break;
+
+                case 'specific':
+                  $aActionElements[] = array(
+                    "type" => "button",
+                    "text" => array(
+                      "type" => "plain_text",
+                      "text" => "Assign"
+                    ),
+                    "url" => "http://localhost/itop1/pages/UI.php?operation=stimulus&stimulus=ev_assign&class=UserRequest&id=1"
+                  );
+                  break;
+              }
+            }
+            return $aActionElements;
+          }
+          ]]></code>
+        </method>
+        <method id="GetListViewAttributes">
+          <static>false</static>
+          <access>private</access>
+          <type>Custom</type>
+          <code><![CDATA[private function GetListViewAttributes($aContextArgs)
+          {
+            if(!empty($this->Get('include_list_view')) && $this->Get('include_list_view') == 'yes'){
+              return array(
+                0 => array(
+                  "type" => "mrkdwn",
+                  "text" => "*User Request*\n<http://localhost/itop1/pages/UI.php?operation=details&class=UserRequest&id=619&|R-000619>"
+                ),
+                1 => array(
+                  "type" => "mrkdwn",
+                  "text" => "*Title*\nTest Title"
+                ),
+                2 => array(
+                  "type" => "mrkdwn",
+                  "text" => "*Organization*\n<http://localhost/itop1/pages/UI.php?operation=details&class=Organization&id=2&|Demo>"
+                )
+              );
+            }
+            return false;
+          }
+          ]]></code>
+        </method>
+        <method id="GetAttachments">
+          <static>false</static>
+          <access>private</access>
+          <type>Custom</type>
+          <code><![CDATA[private function GetAttachments($aContextArgs)
+          {
+            if (!empty($this->Get('attachment')) && $this->Get('attachment') == 'yes'){
+              $aAttachment = array();
+              if (!empty($this->Get("att_title"))){
+                $aAttachment['title'] = MetaModel::ApplyParams($this->Get("att_title"), $aContextArgs);
+              }
+              if (($sLink = $this->GetObjectLink('att_title_link', $aContextArgs)) && !empty($sLink)){
+                $aAttachment['title_link'] = $sLink;
+              }
+              if (!empty($this->Get('att_color'))){
+                $aAttachment['color'] = $this->Get('att_color');
+              }
+              if (!empty($this->Get("att_text"))){
+                $aAttachment['text'] = $this->prepareTextForSlack(MetaModel::ApplyParams($this->Get("att_text"), $aContextArgs));
+                $aAttachment['mrkdwn_in'] = array("text");
+              }
+              if (!empty($this->Get("att_fallback"))){
+                $aAttachment['fallback'] = $this->prepareTextForSlack(MetaModel::ApplyParams($this->Get("att_fallback"), $aContextArgs));
+              }
+              return array(
+                0 => $aAttachment
+              );
+            }
+            return false;
           }
           ]]></code>
         </method>
@@ -363,8 +546,28 @@
             <item id="col:col2">
               <rank>30</rank>
               <items>
-                <item id="fieldset:ActionWebhookNotification:attachment">
+                <item id="fieldset:ActionWebhookNotification:additional_fields">
                   <rank>10</rank>
+                  <items>
+                    <item id="include_list_view">
+                      <rank>10</rank>
+                    </item>
+                    <item id="include_modify_button">
+                      <rank>20</rank>
+                    </item>
+                    <item id="include_delete_button">
+                      <rank>30</rank>
+                    </item>
+                    <item id="include_otheraction_buttons">
+                      <rank>40</rank>
+                    </item>
+                    <item id="specific_action_buttons">
+                      <rank>50</rank>
+                    </item>
+                  </items>
+                </item>
+                <item id="fieldset:ActionWebhookNotification:attachment">
+                  <rank>20</rank>
                   <items>
                     <item id="attachment">
                       <rank>10</rank>
