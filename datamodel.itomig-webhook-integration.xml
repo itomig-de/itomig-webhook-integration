@@ -400,69 +400,76 @@
         </method>
         <method id="GetActions">
           <static>false</static>
-          <access>private</access>
+          <access>protected</access>
           <type>Custom</type>
-          <code><![CDATA[private function GetActions($aContextArgs)
-          {
-            $aActionElements = array();
-            if(!empty($this->Get('include_modify_button')) && $this->Get('include_modify_button') == 'yes'){
-              $aActionElements[] = array(
-                "type" => "button",
-                "text" => array(
-                  "type" => "plain_text",
-                  "text" => "Modify"
-                ),
-                "url" => "http://localhost/itop1/pages/UI.php?operation=modify&class=UserRequest&id=1"
-              );
-            }
+          <code><![CDATA[	protected function GetActions($aContextArgs)
+	{
+		$aActionElements = array();
+		/** @var cmdbAbstractObject $oObj */
+		$oObj = $aContextArgs['this->object()'];
+		$sClass = get_class($oObj);
+		$iKey = $oObj->GetKey();
+		$sPage = DBObject::ComputeStandardUIPage($sClass);
+		$sAbsoluteUrl = utils::GetAbsoluteUrlAppRoot();
 
-            if(!empty($this->Get('include_delete_button')) && $this->Get('include_delete_button') == 'yes'){
-              $aActionElements[] = array(
-                "type" => "button",
-                "text" => array(
-                  "type" => "plain_text",
-                  "text" => "Delete"
-                ),
-                "url" => "http://localhost/itop1/pages/UI.php?operation=delete&class=UserRequest&id=1"
-              );
-            }
+		if ($this->Get('include_modify_button') == 'yes') {
+			$aActionElements[] = array(
+				'type' => 'button',
+				'text' => array(
+					'type' => 'plain_text',
+					'text' => Dict::S('UI:Menu:Modify'),
+				),
+				'action_id' => 'modify',
+				'url' => sprintf('%spages/%s?operation=modify&class=%s&id=%d', $sAbsoluteUrl, $sPage, $sClass, $iKey),
+				'style' => 'primary',
+			);
+		}
 
-            if(!empty($this->Get('include_otheraction_buttons'))){
-              switch ($this->Get('include_otheraction_buttons')) {
-                case 'yes':
-                  $aActionElements[] = array(
-                    "type" => "button",
-                    "text" => array(
-                      "type" => "plain_text",
-                      "text" => "Assign"
-                    ),
-                    "url" => "http://localhost/itop1/pages/UI.php?operation=stimulus&stimulus=ev_assign&class=UserRequest&id=1"
-                  );
-                  $aActionElements[] = array(
-                    "type" => "button",
-                    "text" => array(
-                      "type" => "plain_text",
-                      "text" => "Pending"
-                    ),
-                    "url" => "http://localhost/itop1/pages/UI.php?operation=stimulus&stimulus=ev_pending&class=UserRequest&id=1"
-                  );
-                  break;
+		if ($this->Get('include_otheraction_buttons') != 'no')
+		{
+			$aTransitions = $oObj->EnumTransitions();
+			$aStimuli = MetaModel::EnumStimuli($sClass);
+			if ($this->Get('include_otheraction_buttons') == 'yes')
+			{
+				$aAllowedStimuli = array_keys($aTransitions);
+			}
+			else
+			{
+				$aAllowedStimuli = preg_split('/\s*,\s*/', $this->Get('specific_action_buttons'));
+			}
 
-                case 'specific':
-                  $aActionElements[] = array(
-                    "type" => "button",
-                    "text" => array(
-                      "type" => "plain_text",
-                      "text" => "Assign"
-                    ),
-                    "url" => "http://localhost/itop1/pages/UI.php?operation=stimulus&stimulus=ev_assign&class=UserRequest&id=1"
-                  );
-                  break;
-              }
-            }
-            return $aActionElements;
-          }
-          ]]></code>
+			foreach ($aAllowedStimuli as $sStimulusCode)
+			{
+				if (isset($aTransitions[$sStimulusCode]) && is_a($aStimuli[$sStimulusCode], StimulusUserAction::class))
+				{
+					$aActionElements[] = array(
+						'type' => 'button',
+						'text' => array(
+							'type' => 'plain_text',
+							'text' => $aStimuli[$sStimulusCode]->GetLabel(),
+						),
+						'action_id' => $sStimulusCode,
+						'url' => sprintf('%spages/%s?operation=stimulus&stimulus=%s&class=%s&id=%d', $sAbsoluteUrl, $sPage, $sStimulusCode, $sClass, $iKey),
+					);
+				}
+			}
+		}
+
+		if ($this->Get('include_delete_button') == 'yes') {
+			$aActionElements[] = array(
+				'type' => 'button',
+				'text' => array(
+					'type' => 'plain_text',
+					'text' => Dict::S('UI:Menu:Delete'),
+				),
+				'action_id' => 'delete',
+				'url' => sprintf('%spages/%s?operation=delete&class=%s&id=%d', $sAbsoluteUrl, $sPage, $sClass, $iKey),
+				'style' => 'danger',
+			);
+		}
+
+		return $aActionElements;
+	}]]></code>
         </method>
         <method id="GetListViewAttributes">
           <static>false</static>
