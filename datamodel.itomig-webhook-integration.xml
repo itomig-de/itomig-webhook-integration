@@ -180,8 +180,28 @@
             <item id="col:col2">
               <rank>30</rank>
               <items>
-                <item id="fieldset:ActionWebhookNotification:attachment">
+                <item id="fieldset:ActionWebhookNotification:additional_fields">
                   <rank>10</rank>
+                  <items>
+                    <item id="include_list_view">
+                      <rank>10</rank>
+                    </item>
+                    <item id="include_modify_button">
+                      <rank>20</rank>
+                    </item>
+                    <item id="include_delete_button">
+                      <rank>30</rank>
+                    </item>
+                    <item id="include_otheraction_buttons">
+                      <rank>40</rank>
+                    </item>
+                    <item id="specific_action_buttons">
+                      <rank>50</rank>
+                    </item>
+                  </items>
+                </item>
+                <item id="fieldset:ActionWebhookNotification:attachment">
+                  <rank>20</rank>
                   <items>
                     <item id="attachment">
                       <rank>10</rank>
@@ -785,8 +805,16 @@
             <item id="col:col2">
               <rank>30</rank>
               <items>
-                <item id="fieldset:ActionWebhookNotification:attachment">
+                <item id="fieldset:ActionWebhookNotification:additional_fields">
                   <rank>10</rank>
+                  <items>
+                    <item id="include_list_view">
+                      <rank>10</rank>
+                    </item>
+                  </items>
+                </item>
+                <item id="fieldset:ActionWebhookNotification:attachment">
+                  <rank>20</rank>
                   <items>
                     <item id="attachment">
                       <rank>10</rank>
