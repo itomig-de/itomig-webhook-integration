@@ -83,13 +83,15 @@ Dict::Add('EN US', 'English', 'English', array(
 		'ActionWebhookNotification:baseinfo' => 'General information',
 		'ActionWebhookNotification:urlinfo' => 'Webhook Connection',
 		'ActionWebhookNotification:standard' => 'Basis Message',
-		'ActionWebhookNotification:attachment' => 'Attachment (legacy)',
+		'ActionWebhookNotification:attachment' => 'Attachment',
 		'ActionWebhookNotification:additional_fields' => 'Additional fields and buttons',
 
 
 	// Class ActionSlackNotification
 		'Class:ActionSlackNotification' => 'Slack Notification',
 		'Class:ActionSlackNotification+' => 'Send Notification to Slack Webhook',
+		
+		'ActionSlackNotification:attachment' => 'Attachment (legacy)',
 
 
 	// Class ActionRocketChatNotification

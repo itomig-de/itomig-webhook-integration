@@ -566,7 +566,7 @@
                     </item>
                   </items>
                 </item>
-                <item id="fieldset:ActionWebhookNotification:attachment">
+                <item id="fieldset:ActionSlackNotification:attachment">
                   <rank>20</rank>
                   <items>
                     <item id="attachment">
