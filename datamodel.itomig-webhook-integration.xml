@@ -301,63 +301,70 @@
           <static>false</static>
           <access>protected</access>
           <type>Custom</type>
-          <code><![CDATA[protected function preparePostData($aContextArgs, &$oLog)
-          {
-            $aSlackData = array(
-              'type' => 'mrkdwn',
-              'text' => empty($this->Get("text")) ? "" : $this->prepareTextForSlack(MetaModel::ApplyParams($this->Get("text"), $aContextArgs))
-            );
+          <code><![CDATA[	protected function preparePostData($aContextArgs, &$oLog)
+	{
+		$sText = empty($this->Get("text")) ? "" : $this->prepareTextForSlack(MetaModel::ApplyParams($this->Get("text"), $aContextArgs));
+		$aSlackData = array(
+			'text' => $sText,
+			'blocks' => array(
+				array(
+					'type' => 'section',
+					'text' => array(
+						'type' => 'mrkdwn',
+						'text' => $sText,
+					),
+				),
+			),
+		);
 
-            if (!empty($this->Get('channel'))){
-              $aSlackData['channel'] = $this->Get('channel');
-            }
-            if (!empty($this->Get('bot_alias'))){
-              $aSlackData['username'] = $this->Get('bot_alias');
-            }
-            
+		if (!empty($this->Get('channel'))) {
+			$aSlackData['channel'] = $this->Get('channel');
+		}
+		if (!empty($this->Get('bot_alias'))) {
+			$aSlackData['username'] = $this->Get('bot_alias');
+		}
 
-            $aSlackBlocks = array();
+		// Fields from list view
+		if ($aFields = $this->GetListViewAttributes($aContextArgs)) {
+			$aSlackData['blocks'][] = array(
+				'type' => 'section',
+				'fields' => $aFields,
+			);
+		}
 
-            // Add basic text also as section
-            if($aFields = $this->GetListViewAttributes($aContextArgs)){
-              $aSlackBlocks[] = array(
-                'type' => 'section',
-                'text' => array(
-                  'type' => isset($aSlackData['type']) ? $aSlackData['type'] : 'mrkdwn',
-                  'text' => isset($aSlackData['text']) ? $aSlackData['text'] : ''
-                )
-              );
-            }
+		/**
+		 * Add user info
+		 * @var User $oUser
+		 */
+		$oUser = UserRights::GetUserObject();
+		$sUserUrl = ApplicationContext::MakeObjectUrl(get_class($oUser), $oUser->GetKey(), null, false);
 
-            // Fields from list view
-            if($aFields = $this->GetListViewAttributes($aContextArgs)){
-              $aSlackBlocks[] = array(
-                'type' => 'section',
-                'fields' => $aFields
-              );
-            }
+		$aSlackData['blocks'][] = array(
+			'type' => 'context',
+			'elements' => array(
+				array(
+					'type' => 'mrkdwn',
+					'text' => sprintf('*User*: <%s|%s>', $sUserUrl, $oUser->GetFriendlyName()),
+				),
+			),
+		);
 
-            // Actions
-            if($aActions = $this->GetActions($aContextArgs)){
-              $aSlackBlocks[] = array(
-                'type' => 'actions',
-                'elements' => $aActions
-              );
-            }
-            if(!empty($aSlackBlocks)){
+		// Actions
+		if ($aActions = $this->GetActions($aContextArgs)) {
+			$aSlackData['blocks'][] = array(
+				'type' => 'actions',
+				'elements' => $aActions,
+			);
+		}
 
-              $aSlackData['blocks'] = $aSlackBlocks;
-            }
-            
-            // Attachments
-            if($aAttachments = $this->GetAttachments($aContextArgs)){
-              $aSlackData['attachments'] = $aAttachments;
-            }
+		// Attachments
+		if ($aAttachments = $this->GetAttachments($aContextArgs)) {
+			$aSlackData['attachments'] = $aAttachments;
+		}
 
-            $oLog->Set ( 'content', "POST Data: \n" . print_r($aSlackData,true) );
-            return $aSlackData;
-          }
-          ]]></code>
+		$oLog->Set('content', "POST Data: \n" . print_r($aSlackData, true));
+		return $aSlackData;
+	}]]></code>
         </method>
         <method id="prepareTextForSlack">
           <static>false</static>
