@@ -466,29 +466,31 @@
         </method>
         <method id="GetListViewAttributes">
           <static>false</static>
-          <access>private</access>
+          <access>protected</access>
           <type>Custom</type>
-          <code><![CDATA[private function GetListViewAttributes($aContextArgs)
-          {
-            if(!empty($this->Get('include_list_view')) && $this->Get('include_list_view') == 'yes'){
-              return array(
-                0 => array(
-                  "type" => "mrkdwn",
-                  "text" => "*User Request*\n<http://localhost/itop1/pages/UI.php?operation=details&class=UserRequest&id=619&|R-000619>"
-                ),
-                1 => array(
-                  "type" => "mrkdwn",
-                  "text" => "*Title*\nTest Title"
-                ),
-                2 => array(
-                  "type" => "mrkdwn",
-                  "text" => "*Organization*\n<http://localhost/itop1/pages/UI.php?operation=details&class=Organization&id=2&|Demo>"
-                )
-              );
-            }
-            return false;
-          }
-          ]]></code>
+          <code><![CDATA[	protected function GetListViewAttributes($aContextArgs)
+	{
+		if ($this->Get('include_list_view') == 'no') return;
+		$aFields = array();
+
+		/** @var CMDBObject $oObj */
+		$oObj = $aContextArgs['this->object()'];
+		$sClass = get_class($oObj);
+
+		$aListItems = MetaModel::GetZListItems($sClass, 'slack');
+		if (empty($aListItems)) $aListItems = MetaModel::GetZListItems($sClass, 'list');
+
+		foreach($aListItems as $sAttCode)
+		{
+			$oAttDef = MetaModel::GetAttributeDef($sClass, $sAttCode);
+			$aFields[] = array(
+				'type' => 'mrkdwn',
+				'text' => sprintf("*%s*\n%s", $oAttDef->GetLabel(), $this->prepareTextForSlack($oObj->GetAsHtml($sAttCode))),
+			);
+		}
+
+		return $aFields;
+	}]]></code>
         </method>
         <method id="GetAttachments">
           <static>false</static>
