@@ -723,7 +723,14 @@
 
             if (isset ( $aPostParams_raw['sSendAttachment'] ) 
               && ($aPostParams_raw['sSendAttachment'] === 'yes' || $aPostParams_raw['sSendAttachment'] === 'Ja')){
-              $att_params = array();
+              /** @var User $oUser */
+              $oUser = UserRights::GetUserObject();
+              $att_params = array(
+              	'author_name' => $oUser->GetFriendlyName(),
+              	'author_link' => ApplicationContext::MakeObjectUrl(get_class($oUser), $oUser->GetKey(), null, false),
+              	'author_icon' => $oUser->GetIcon(false),
+              	'ts' => date(DATE_W3C),
+			  );
               if (isset ( $aPostParams_raw['sAttTitle'] )){
                 $att_params['title'] = $aPostParams_raw['sAttTitle'];
               }
