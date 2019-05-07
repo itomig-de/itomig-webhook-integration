@@ -713,6 +713,14 @@
             if (isset ( $aPostParams_raw['sBotAlias'] )){
               $rocketData['username'] = $aPostParams_raw['sBotAlias'];
             }
+
+            // Fields from list view
+			if ($aFields = $this->GetListViewAttributes($aContextArgs)) {
+				$rocketData['attachments'][] = array(
+					'fields' => $aFields,
+				);
+            }
+
             if (isset ( $aPostParams_raw['sSendAttachment'] ) 
               && ($aPostParams_raw['sSendAttachment'] === 'yes' || $aPostParams_raw['sSendAttachment'] === 'Ja')){
               $att_params = array();
@@ -740,6 +748,35 @@
             return $rocketData;
           }
           ]]></code>
+        </method>
+        <method id="GetListViewAttributes">
+          <static>false</static>
+          <access>protected</access>
+          <type>Custom</type>
+          <code><![CDATA[	protected function GetListViewAttributes($aContextArgs)
+	{
+		if ($this->Get('include_list_view') == 'no') return;
+		$aFields = array();
+
+		/** @var CMDBObject $oObj */
+		$oObj = $aContextArgs['this->object()'];
+		$sClass = get_class($oObj);
+
+		$aListItems = MetaModel::GetZListItems($sClass, 'rocket.chat');
+		if (empty($aListItems)) $aListItems = MetaModel::GetZListItems($sClass, 'list');
+
+		foreach($aListItems as $sAttCode)
+		{
+			$oAttDef = MetaModel::GetAttributeDef($sClass, $sAttCode);
+			$aFields[] = array(
+				'short' => true,
+				'title' => $oAttDef->GetLabel(),
+				'value' => $this->prepareTextForRocket($oObj->GetAsHtml($sAttCode)),
+			);
+		}
+
+		return $aFields;
+	}]]></code>
         </method>
         <method id="prepareTextForRocket">
           <static>false</static>
