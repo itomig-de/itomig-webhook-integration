@@ -510,19 +510,22 @@
           {
             //convert html to rocket markdown
             if(!empty($sText)){
-              $sText = strip_tags($sText, '<h1><h2><h3><br><strong><em><del><li><code><pre><a></a>');
+              $sText = strip_tags($sText, '<h1><h2><h3><br><strong><b><em><i><del><s><li><code><pre><a>');
                   $sText = str_replace(array('<br />', '<br>'), "\n", $sText);
                   $sText = str_replace(array('<h1>', '</h1>'), array('**', '**'), $sText);
                   $sText = str_replace(array('<h2>', '</h2>'), array('**', '**'), $sText);
                   $sText = str_replace(array('<h3>', '</h3>'), array('**', '**'), $sText);
-                  $sText = str_replace(array('<strong>', '</strong>'), array('**', '**'), $sText);
-                  $sText = str_replace(array('<em>', '</em>'), array('__', '__'), $sText);
+                  $sText = str_replace(array('<strong>', '</strong>'), array('*', '*'), $sText);
+                  $sText = str_replace(array('<b>', '</b>'), array('*', '*'), $sText);
+                  $sText = str_replace(array('<em>', '</em>'), array('_', '_'), $sText);
+                  $sText = str_replace(array('<i>', '</i>'), array('_', '_'), $sText);
                   $sText = str_replace(array('<del>', '</del>'), array('~', '~'), $sText);
-                  $sText = str_replace(array('<li>', '</li>'), array('* ', ''), $sText);
+                  $sText = str_replace(array('<s>', '</s>'), array('~', '~'), $sText);
+                  $sText = str_replace(array('<li>', '</li>'), array('• ', ''), $sText);
                   $sText = str_replace(array('<code>', '</code>'), array('`', '`'), $sText);
-                  $sText = str_replace(array('<pre>', '</pre>'), array('`', '`'), $sText);
+                  $sText = str_replace(array('<pre>', '</pre>'), array('```', '```'), $sText);
 
-                  preg_match_all('/<a href=\"(.*?)\">(.*?)<\/a>/i', $sText, $res);
+                  preg_match_all('/<\s*a.*?href\s*=\s*(?:\"|\')(.*?)(?:\"|\')[^>]*>(.*?)<\s*?\/\s*?a\s*?>/i', $sText, $res);
                   for($i = 0; $i < count($res[0]); $i++) {
                       $sText = str_replace($res[0][$i], '['.$res[2][$i].']('.$res[1][$i].')', $sText);
                   }
