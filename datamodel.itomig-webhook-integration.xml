@@ -337,14 +337,15 @@
 		 * @var User $oUser
 		 */
 		$oUser = UserRights::GetUserObject();
-		$sUserUrl = ApplicationContext::MakeObjectUrl(get_class($oUser), $oUser->GetKey(), null, false);
+		$oContact = $oUser->GetContactObject() ?: $oUser;
+		$sContactUrl = ApplicationContext::MakeObjectUrl(get_class($oContact), $oContact->GetKey(), null, false);
 
 		$aSlackData['blocks'][] = array(
 			'type' => 'context',
 			'elements' => array(
 				array(
 					'type' => 'mrkdwn',
-					'text' => sprintf('*User*: <%s|%s>', $sUserUrl, $oUser->GetFriendlyName()),
+					'text' => sprintf('*User*: <%s|%s>', $sContactUrl, $oUser->GetFriendlyName()),
 				),
 			),
 		);
@@ -725,10 +726,11 @@
               && ($aPostParams_raw['sSendAttachment'] === 'yes' || $aPostParams_raw['sSendAttachment'] === 'Ja')){
               /** @var User $oUser */
               $oUser = UserRights::GetUserObject();
+              $oContact = $oUser->GetContactObject() ?: $oUser;
               $att_params = array(
               	'author_name' => $oUser->GetFriendlyName(),
-              	'author_link' => ApplicationContext::MakeObjectUrl(get_class($oUser), $oUser->GetKey(), null, false),
-              	'author_icon' => $oUser->GetIcon(false),
+              	'author_link' => ApplicationContext::MakeObjectUrl(get_class($oContact), $oContact->GetKey(), null, false),
+              	'author_icon' => $oContact->GetIcon(false),
               	'ts' => date(DATE_W3C),
 			  );
               if (isset ( $aPostParams_raw['sAttTitle'] )){
