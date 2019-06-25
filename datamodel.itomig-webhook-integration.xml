@@ -127,6 +127,21 @@
           <is_null_allowed>false</is_null_allowed>
           <display_style>radio_horizontal</display_style>
         </field>
+        <field id="include_userinfo" xsi:type="AttributeEnum">
+          <values>
+            <value id="yes">yes</value>
+            <value id="no">no</value>
+          </values>
+          <sql>include_userinfo</sql>
+          <default_value>no</default_value>
+          <is_null_allowed>false</is_null_allowed>
+          <display_style>radio_horizontal</display_style>
+        </field>
+        <field id="language" xsi:type="AttributeApplicationLanguage">
+          <sql>language</sql>
+          <is_null_allowed>false</is_null_allowed>
+          <default_value>EN US</default_value>
+        </field>
       </fields>
       <methods>
       </methods>
@@ -517,6 +532,9 @@
                     <item id="status">
                       <rank>30</rank>
                     </item>
+                    <item id="language">
+                      <rank>40</rank>
+                    </item>
                   </items>
                 </item>
                 <item id="fieldset:ActionWebhookNotification:urlinfo">
@@ -563,6 +581,9 @@
                     </item>
                     <item id="specific_action_buttons">
                       <rank>50</rank>
+                    </item>
+                    <item id="include_userinfo">
+                      <rank>60</rank>
                     </item>
                   </items>
                 </item>
@@ -755,6 +776,9 @@
                     </item>
                     <item id="status">
                       <rank>30</rank>
+                    </item>
+                    <item id="language">
+                      <rank>40</rank>
                     </item>
                   </items>
                 </item>
