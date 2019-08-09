@@ -317,70 +317,80 @@
           <access>protected</access>
           <type>Custom</type>
           <code><![CDATA[	protected function preparePostData($aContextArgs, &$oLog)
-	{
-		$sText = empty($this->Get("text")) ? "" : $this->prepareTextForSlack(MetaModel::ApplyParams($this->Get("text"), $aContextArgs));
-		$aSlackData = array(
-			'text' => $sText,
-			'blocks' => array(
-				array(
-					'type' => 'section',
-					'text' => array(
-						'type' => 'mrkdwn',
-						'text' => $sText,
-					),
-				),
-			),
-		);
+  {
+    // Set User Language for Notification
+    $sUserLang = Dict::GetUserLanguage();
+    Dict::SetUserLanguage($this->Get("language"));
 
-		if (!empty($this->Get('channel'))) {
-			$aSlackData['channel'] = $this->Get('channel');
-		}
-		if (!empty($this->Get('bot_alias'))) {
-			$aSlackData['username'] = $this->Get('bot_alias');
-		}
+    $sText = empty($this->Get("text")) ? "" : $this->prepareTextForSlack(MetaModel::ApplyParams($this->Get("text"), $aContextArgs));
+    $aSlackData = array(
+      'text' => $sText,
+      'blocks' => array(
+        array(
+          'type' => 'section',
+          'text' => array(
+            'type' => 'mrkdwn',
+            'text' => $sText,
+          ),
+        ),
+      ),
+    );
 
-		// Fields from list view
-		if ($aFields = $this->GetListViewAttributes($aContextArgs)) {
-			$aSlackData['blocks'][] = array(
-				'type' => 'section',
-				'fields' => $aFields,
-			);
-		}
+    if (!empty($this->Get('channel'))) {
+      $aSlackData['channel'] = $this->Get('channel');
+    }
+    if (!empty($this->Get('bot_alias'))) {
+      $aSlackData['username'] = $this->Get('bot_alias');
+    }
 
-		/**
-		 * Add user info
-		 * @var User $oUser
-		 */
-		$oUser = UserRights::GetUserObject();
-		$oContact = $oUser->GetContactObject() ?: $oUser;
-		$sContactUrl = ApplicationContext::MakeObjectUrl(get_class($oContact), $oContact->GetKey(), null, false);
+    // Fields from list view
+    if ($aFields = $this->GetListViewAttributes($aContextArgs)) {
+      $aSlackData['blocks'][] = array(
+        'type' => 'section',
+        'fields' => $aFields,
+      );
+    }
 
-		$aSlackData['blocks'][] = array(
-			'type' => 'context',
-			'elements' => array(
-				array(
-					'type' => 'mrkdwn',
-					'text' => sprintf('*User*: <%s|%s>', $sContactUrl, $oUser->GetFriendlyName()),
-				),
-			),
-		);
 
-		// Actions
-		if ($aActions = $this->GetActions($aContextArgs)) {
-			$aSlackData['blocks'][] = array(
-				'type' => 'actions',
-				'elements' => $aActions,
-			);
-		}
+    if ($this->Get('include_userinfo') == 'yes') {
+      /**
+       * Add user info
+       * @var User $oUser
+       */
+      $oUser = UserRights::GetUserObject();
+      $oContact = $oUser->GetContactObject() ?: $oUser;
+      $sContactUrl = ApplicationContext::MakeObjectUrl(get_class($oContact), $oContact->GetKey(), null, false);
 
-		// Attachments
-		if ($aAttachments = $this->GetAttachments($aContextArgs)) {
-			$aSlackData['attachments'] = $aAttachments;
-		}
+      $aSlackData['blocks'][] = array(
+        'type' => 'context',
+        'elements' => array(
+          array(
+            'type' => 'mrkdwn',
+            'text' => sprintf('*User*: <%s|%s>', $sContactUrl, $oUser->GetFriendlyName()),
+          ),
+        ),
+      );
+    }
 
-		$oLog->Set('content', "POST Data: \n" . print_r($aSlackData, true));
-		return $aSlackData;
-	}]]></code>
+    // Actions
+    if ($aActions = $this->GetActions($aContextArgs)) {
+      $aSlackData['blocks'][] = array(
+        'type' => 'actions',
+        'elements' => $aActions,
+      );
+    }
+
+    // Attachments
+    if ($aAttachments = $this->GetAttachments($aContextArgs)) {
+      $aSlackData['attachments'] = $aAttachments;
+    }
+
+    $oLog->Set('content', "POST Data: \n" . print_r($aSlackData, true));
+
+    // Reset User Language
+    Dict::SetUserLanguage($sUserLang);
+    return $aSlackData;
+  }]]></code>
         </method>
         <method id="prepareTextForSlack">
           <static>false</static>
@@ -428,7 +438,8 @@
 		$sPage = DBObject::ComputeStandardUIPage($sClass);
 		$sAbsoluteUrl = utils::GetAbsoluteUrlAppRoot();
 
-		if ($this->Get('include_modify_button') == 'yes') {
+		if ($this->Get('include_modify_button') == 'yes') 
+    {
 			$aActionElements[] = array(
 				'type' => 'button',
 				'text' => array(
@@ -471,7 +482,8 @@
 			}
 		}
 
-		if ($this->Get('include_delete_button') == 'yes') {
+		if ($this->Get('include_delete_button') == 'yes') 
+    {
 			$aActionElements[] = array(
 				'type' => 'button',
 				'text' => array(
@@ -519,33 +531,32 @@
           <static>false</static>
           <access>private</access>
           <type>Custom</type>
-          <code><![CDATA[private function GetAttachments($aContextArgs)
-          {
-            if (!empty($this->Get('attachment')) && $this->Get('attachment') == 'yes'){
-              $aAttachment = array();
-              if (!empty($this->Get("att_title"))){
-                $aAttachment['title'] = MetaModel::ApplyParams($this->Get("att_title"), $aContextArgs);
-              }
-              if (($sLink = $this->GetObjectLink('att_title_link', $aContextArgs)) && !empty($sLink)){
-                $aAttachment['title_link'] = $sLink;
-              }
-              if (!empty($this->Get('att_color'))){
-                $aAttachment['color'] = $this->Get('att_color');
-              }
-              if (!empty($this->Get("att_text"))){
-                $aAttachment['text'] = $this->prepareTextForSlack(MetaModel::ApplyParams($this->Get("att_text"), $aContextArgs));
-                $aAttachment['mrkdwn_in'] = array("text");
-              }
-              if (!empty($this->Get("att_fallback"))){
-                $aAttachment['fallback'] = $this->prepareTextForSlack(MetaModel::ApplyParams($this->Get("att_fallback"), $aContextArgs));
-              }
-              return array(
-                0 => $aAttachment
-              );
-            }
-            return false;
-          }
-          ]]></code>
+          <code><![CDATA[ private function GetAttachments($aContextArgs)
+  {
+    if (!empty($this->Get('attachment')) && $this->Get('attachment') == 'yes'){
+      $aAttachment = array();
+      if (!empty($this->Get("att_title"))){
+        $aAttachment['title'] = MetaModel::ApplyParams($this->Get("att_title"), $aContextArgs);
+      }
+      if (($sLink = $this->GetObjectLink('att_title_link', $aContextArgs)) && !empty($sLink)){
+        $aAttachment['title_link'] = $sLink;
+      }
+      if (!empty($this->Get('att_color'))){
+        $aAttachment['color'] = $this->Get('att_color');
+      }
+      if (!empty($this->Get("att_text"))){
+        $aAttachment['text'] = $this->prepareTextForSlack(MetaModel::ApplyParams($this->Get("att_text"), $aContextArgs));
+        $aAttachment['mrkdwn_in'] = array("text");
+      }
+      if (!empty($this->Get("att_fallback"))){
+        $aAttachment['fallback'] = $this->prepareTextForSlack(MetaModel::ApplyParams($this->Get("att_fallback"), $aContextArgs));
+      }
+      return array(
+        0 => $aAttachment
+      );
+    }
+    return false;
+  }]]></code>
         </method>
       </methods>
       <presentation>
@@ -719,126 +730,142 @@
           <static>false</static>
           <access>protected</access>
           <type>Custom</type>
-          <code><![CDATA[protected function preparePostData($aContextArgs, &$oLog)
-          {
-            $aPostParams_raw = parent::preparePostData($aContextArgs, $oLog);
-            $rocketData = array();
-            //$rocketData['mrkdwn'] = true;
+          <code><![CDATA[ protected function preparePostData($aContextArgs, &$oLog)
+  {
+    // Set User Language for Notification
+    $sUserLang = Dict::GetUserLanguage();
+    Dict::SetUserLanguage($this->Get("language"));
 
-            if (isset ( $aPostParams_raw['sText'] )){
-              $aPostParams_raw['sText'] = $this->prepareTextForRocket($aPostParams_raw['sText']);
-              $rocketData['text'] = $aPostParams_raw['sText'];
-            }
-            if (isset ( $aPostParams_raw['sWebhookChannel'] )){
-              $rocketData['channel'] = $aPostParams_raw['sWebhookChannel'];
-            }
-            if (isset ( $aPostParams_raw['sBotAlias'] )){
-              $rocketData['username'] = $aPostParams_raw['sBotAlias'];
-            }
+    $aPostParams_raw = parent::preparePostData($aContextArgs, $oLog);
+    $rocketData = array();
 
-            // Fields from list view
-			if ($aFields = $this->GetListViewAttributes($aContextArgs)) {
-				$rocketData['attachments'][] = array(
-					'fields' => $aFields,
-				);
-            }
+    if (isset ( $aPostParams_raw['sText'] ))
+    {
+      $aPostParams_raw['sText'] = $this->prepareTextForRocket($aPostParams_raw['sText']);
+      $rocketData['text'] = $aPostParams_raw['sText'];
+    }
+    if (isset ( $aPostParams_raw['sWebhookChannel'] )){
+      $rocketData['channel'] = $aPostParams_raw['sWebhookChannel'];
+    }
+    if (isset ( $aPostParams_raw['sBotAlias'] )){
+      $rocketData['username'] = $aPostParams_raw['sBotAlias'];
+    }
 
-            if (isset ( $aPostParams_raw['sSendAttachment'] ) 
-              && ($aPostParams_raw['sSendAttachment'] === 'yes' || $aPostParams_raw['sSendAttachment'] === 'Ja')){
-              /** @var User $oUser */
-              $oUser = UserRights::GetUserObject();
-              $oContact = $oUser->GetContactObject() ?: $oUser;
-              $att_params = array(
-              	'author_name' => $oUser->GetFriendlyName(),
-              	'author_link' => ApplicationContext::MakeObjectUrl(get_class($oContact), $oContact->GetKey(), null, false),
-              	'author_icon' => $oContact->GetIcon(false),
-              	'ts' => date(DATE_W3C),
-			  );
-              if (isset ( $aPostParams_raw['sAttTitle'] )){
-                $att_params['title'] = $aPostParams_raw['sAttTitle'];
-              }
-              if (isset ( $aPostParams_raw['sAttTitleLink'] )){
-                $att_params['title_link'] = $aPostParams_raw['sAttTitleLink'];
-              }
-              if (isset ( $aPostParams_raw['sAttColor'] )){
-                $att_params['color'] = $aPostParams_raw['sAttColor'];
-              }
-              if (isset ( $aPostParams_raw['sAttText'] )){
-                $aPostParams_raw['sAttText'] = $this->prepareTextForRocket($aPostParams_raw['sAttText']);
-                $att_params['text'] = $aPostParams_raw['sAttText'];
-                //$att_params['mrkdwn_in'] = array("text");
-              }
-              if (isset ( $aPostParams_raw['sAttFallback'] )){
-                $aPostParams_raw['sAttFallback'] = $this->prepareTextForRocket($aPostParams_raw['sAttFallback']);
-                $att_params['fallback'] = $aPostParams_raw['sAttFallback'];
-              }
-              $rocketData['attachments'][] = $att_params;
-            }
-            $oLog->Set ( 'content', "POST Data: \n" . print_r($rocketData,true) );
-            return $rocketData;
-          }
-          ]]></code>
+    // Fields from list view
+    if ($aFields = $this->GetListViewAttributes($aContextArgs)) {
+      $rocketData['attachments'][] = array(
+        'fields' => $aFields,
+      );
+    }
+
+    if (isset ( $aPostParams_raw['sSendAttachment'] ) 
+      && ($aPostParams_raw['sSendAttachment'] === 'yes' || $aPostParams_raw['sSendAttachment'] === 'Ja'))
+    {
+      $att_params = array();
+      if (isset ( $aPostParams_raw['sAttTitle'] ))
+      {
+        $att_params['title'] = $aPostParams_raw['sAttTitle'];
+      }
+      if (isset ( $aPostParams_raw['sAttTitleLink'] ))
+      {
+        $att_params['title_link'] = $aPostParams_raw['sAttTitleLink'];
+      }
+      if (isset ( $aPostParams_raw['sAttColor'] ))
+      {
+        $att_params['color'] = $aPostParams_raw['sAttColor'];
+      }
+      if (isset ( $aPostParams_raw['sAttText'] ))
+      {
+        $aPostParams_raw['sAttText'] = $this->prepareTextForRocket($aPostParams_raw['sAttText']);
+        $att_params['text'] = $aPostParams_raw['sAttText'];
+        //$att_params['mrkdwn_in'] = array("text");
+      }
+      if (isset ( $aPostParams_raw['sAttFallback'] ))
+      {
+        $aPostParams_raw['sAttFallback'] = $this->prepareTextForRocket($aPostParams_raw['sAttFallback']);
+        $att_params['fallback'] = $aPostParams_raw['sAttFallback'];
+      }
+      $rocketData['attachments'][] = $att_params;
+    }
+    if ($this->Get('include_userinfo') == 'yes')
+    {
+      /** @var User $oUser */
+      $oUser = UserRights::GetUserObject();
+      $oContact = $oUser->GetContactObject() ?: $oUser;
+      $rocketData['attachments'][] = array(
+        'author_name' => $oUser->GetFriendlyName(),
+        'author_link' => ApplicationContext::MakeObjectUrl(get_class($oContact), $oContact->GetKey(), null, false),
+        'author_icon' => $oContact->GetIcon(false),
+        'ts'          => date(DATE_W3C),
+     );
+    }
+
+    $oLog->Set ( 'content', "POST Data: \n" . print_r($rocketData,true) );
+    // Reset User Language
+    Dict::SetUserLanguage($sUserLang);
+
+    return $rocketData;
+  }]]></code>
         </method>
         <method id="GetListViewAttributes">
           <static>false</static>
           <access>protected</access>
           <type>Custom</type>
           <code><![CDATA[	protected function GetListViewAttributes($aContextArgs)
-	{
-		if ($this->Get('include_list_view') == 'no') return;
-		$aFields = array();
+  {
+    if ($this->Get('include_list_view') == 'no') return;
+    $aFields = array();
 
-		/** @var CMDBObject $oObj */
-		$oObj = $aContextArgs['this->object()'];
-		$sClass = get_class($oObj);
+    /** @var CMDBObject $oObj */
+    $oObj = $aContextArgs['this->object()'];
+    $sClass = get_class($oObj);
 
-		$aListItems = MetaModel::GetZListItems($sClass, 'rocket.chat');
-		if (empty($aListItems)) $aListItems = MetaModel::GetZListItems($sClass, 'list');
+    $aListItems = MetaModel::GetZListItems($sClass, 'rocket.chat');
+    if (empty($aListItems)) $aListItems = MetaModel::GetZListItems($sClass, 'list');
 
-		foreach($aListItems as $sAttCode)
-		{
-			$oAttDef = MetaModel::GetAttributeDef($sClass, $sAttCode);
-			$aFields[] = array(
-				'short' => true,
-				'title' => $oAttDef->GetLabel(),
-				'value' => $this->prepareTextForRocket($oObj->GetAsHtml($sAttCode)),
-			);
-		}
+    foreach($aListItems as $sAttCode)
+    {
+      $oAttDef = MetaModel::GetAttributeDef($sClass, $sAttCode);
+      $aFields[] = array(
+        'short' => true,
+        'title' => $oAttDef->GetLabel(),
+        'value' => $this->prepareTextForRocket($oObj->GetAsHtml($sAttCode)),
+      );
+    }
 
-		return $aFields;
-	}]]></code>
+    return $aFields;
+  }]]></code>
         </method>
         <method id="prepareTextForRocket">
           <static>false</static>
           <access>private</access>
           <type>Custom</type>
           <code><![CDATA[private function prepareTextForRocket($sText)
-          {
-            //convert html to rocket markdown
-            if(!empty($sText)){
-              $sText = strip_tags($sText, '<h1><h2><h3><br><strong><b><em><i><del><s><li><code><pre><a>');
-                  $sText = str_replace(array('<br />', '<br>'), "\n", $sText);
-                  $sText = str_replace(array('<h1>', '</h1>'), array('**', '**'), $sText);
-                  $sText = str_replace(array('<h2>', '</h2>'), array('**', '**'), $sText);
-                  $sText = str_replace(array('<h3>', '</h3>'), array('**', '**'), $sText);
-                  $sText = str_replace(array('<strong>', '</strong>'), array('*', '*'), $sText);
-                  $sText = str_replace(array('<b>', '</b>'), array('*', '*'), $sText);
-                  $sText = str_replace(array('<em>', '</em>'), array('_', '_'), $sText);
-                  $sText = str_replace(array('<i>', '</i>'), array('_', '_'), $sText);
-                  $sText = str_replace(array('<del>', '</del>'), array('~', '~'), $sText);
-                  $sText = str_replace(array('<s>', '</s>'), array('~', '~'), $sText);
-                  $sText = str_replace(array('<li>', '</li>'), array('• ', ''), $sText);
-                  $sText = str_replace(array('<code>', '</code>'), array('`', '`'), $sText);
-                  $sText = str_replace(array('<pre>', '</pre>'), array('```', '```'), $sText);
+  {
+    //convert html to rocket markdown
+    if(!empty($sText)){
+      $sText = strip_tags($sText, '<h1><h2><h3><br><strong><b><em><i><del><s><li><code><pre><a>');
+      $sText = str_replace(array('<br />', '<br>'), "\n", $sText);
+      $sText = str_replace(array('<h1>', '</h1>'), array('**', '**'), $sText);
+      $sText = str_replace(array('<h2>', '</h2>'), array('**', '**'), $sText);
+      $sText = str_replace(array('<h3>', '</h3>'), array('**', '**'), $sText);
+      $sText = str_replace(array('<strong>', '</strong>'), array('*', '*'), $sText);
+      $sText = str_replace(array('<b>', '</b>'), array('*', '*'), $sText);
+      $sText = str_replace(array('<em>', '</em>'), array('_', '_'), $sText);
+      $sText = str_replace(array('<i>', '</i>'), array('_', '_'), $sText);
+      $sText = str_replace(array('<del>', '</del>'), array('~', '~'), $sText);
+      $sText = str_replace(array('<s>', '</s>'), array('~', '~'), $sText);
+      $sText = str_replace(array('<li>', '</li>'), array('• ', ''), $sText);
+      $sText = str_replace(array('<code>', '</code>'), array('`', '`'), $sText);
+      $sText = str_replace(array('<pre>', '</pre>'), array('```', '```'), $sText);
 
-                  preg_match_all('/<\s*a.*?href\s*=\s*(?:\"|\')(.*?)(?:\"|\')[^>]*>(.*?)<\s*?\/\s*?a\s*?>/i', $sText, $res);
-                  for($i = 0; $i < count($res[0]); $i++) {
-                      $sText = str_replace($res[0][$i], '['.$res[2][$i].']('.$res[1][$i].')', $sText);
-                  }
-              }
-            return $sText;
-          }
-          ]]></code>
+      preg_match_all('/<\s*a.*?href\s*=\s*(?:\"|\')(.*?)(?:\"|\')[^>]*>(.*?)<\s*?\/\s*?a\s*?>/i', $sText, $res);
+      for($i = 0; $i < count($res[0]); $i++) {
+          $sText = str_replace($res[0][$i], '['.$res[2][$i].']('.$res[1][$i].')', $sText);
+      }
+    }
+    return $sText;
+  }]]></code>
         </method>
       </methods>
       <presentation>
@@ -899,6 +926,9 @@
                   <items>
                     <item id="include_list_view">
                       <rank>10</rank>
+                    </item>
+                    <item id="include_userinfo">
+                      <rank>20</rank>
                     </item>
                   </items>
                 </item>
