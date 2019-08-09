@@ -332,7 +332,7 @@ abstract class ActionWebRequest extends ActionNotification {
 		$oWebReq = new WebRequest($url);
 		$aCurlOptions = array(
 			CURLOPT_RETURNTRANSFER => true,
-			CURLOPT_POST => 1,
+			CURLOPT_POST => true,
 			CURLOPT_HTTPHEADER => array(
 				'Content-Type: application/json'
 			),
@@ -340,11 +340,11 @@ abstract class ActionWebRequest extends ActionNotification {
 			CURLOPT_POSTFIELDS => json_encode($aPostParam)
 		);
 		if (MetaModel::GetModuleSetting('itomig-webhook-integration', 'certificate_check', true)) {
-			$aCurlOptions[CURLOPT_SSL_VERIFYPEER] = 1;
+			$aCurlOptions[CURLOPT_SSL_VERIFYPEER] = true;
 			$aCurlOptions[CURLOPT_SSL_VERIFYHOST] = 2;
 		} else {
 			// no certificate checks
-			$aCurlOptions[CURLOPT_SSL_VERIFYPEER] = 0;
+			$aCurlOptions[CURLOPT_SSL_VERIFYPEER] = false;
 			$aCurlOptions[CURLOPT_SSL_VERIFYHOST] = 0;
 		}
 		if (($sCertFile = MetaModel::GetModuleSetting( 'itomig-webhook-integration', 'ca_certificate_file', '')) != '') {
