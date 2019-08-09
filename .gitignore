@@ -1,2 +1,4 @@
 # Ignore generated model
 model.itomig-webhook-integration.php
+*.sublime-project
+*.sublime-workspace
