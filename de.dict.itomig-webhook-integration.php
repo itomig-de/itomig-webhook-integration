@@ -91,13 +91,15 @@ Dict::Add('DE DE', 'German', 'Deutsch', array(
 		'ActionWebhookNotification:baseinfo' => 'Allgemeine Informationen',
 		'ActionWebhookNotification:urlinfo' => 'Webhook Verbindung',
 		'ActionWebhookNotification:standard' => 'Einfache Nachricht',
-		'ActionWebhookNotification:attachment' => 'Attachment (Legacy)',
+		'ActionWebhookNotification:attachment' => 'Attachment',
 		'ActionWebhookNotification:additional_fields' => 'Zusätzliche Felder und Buttons',
 
 
 	// Class ActionSlackNotification
 		'Class:ActionSlackNotification' => 'Slack Benachrichtugung',
 		'Class:ActionSlackNotification+' => 'Sende Benachrichtugung an einen Slack Webhook',
+	
+		'ActionSlackNotification:attachment' => 'Attachment (Legacy)',
 
 
 	// Class ActionRocketChatNotification

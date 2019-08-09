@@ -38,8 +38,8 @@ Dict::Add('EN US', 'English', 'English', array(
 		'Class:ActionWebhookNotification/Attribute:text+' => 'Simple text with params',
 		'Class:ActionWebhookNotification/Attribute:attachment' => 'Use an attachment?',
 		'Class:ActionWebhookNotification/Attribute:attachment+' => '',
-		'Class:ActionWebhookNotification/Attribute:attachment/Value:yes' => 'yes',
-		'Class:ActionWebhookNotification/Attribute:attachment/Value:no' => 'no',
+		'Class:ActionWebhookNotification/Attribute:attachment/Value:yes' => 'Yes',
+		'Class:ActionWebhookNotification/Attribute:attachment/Value:no' => 'No',
 		'Class:ActionWebhookNotification/Attribute:att_title' => 'Attachment title',
 		'Class:ActionWebhookNotification/Attribute:att_title+' => '',
 		'Class:ActionWebhookNotification/Attribute:att_title_link' => 'Attachment link',
@@ -51,23 +51,23 @@ Dict::Add('EN US', 'English', 'English', array(
 		'Class:ActionWebhookNotification/Attribute:att_fallback' => 'Attachment Fallback',
 		'Class:ActionWebhookNotification/Attribute:att_fallback+' => '',
 
-		'Class:ActionWebhookNotification/Attribute:include_delete_button' => 'delete button',
-		'Class:ActionWebhookNotification/Attribute:include_delete_button+' => 'show button for object deletion in message?',
+		'Class:ActionWebhookNotification/Attribute:include_delete_button' => 'Delete button',
+		'Class:ActionWebhookNotification/Attribute:include_delete_button+' => 'Show button for object deletion in message?',
 		'Class:ActionWebhookNotification/Attribute:include_delete_button/Value:yes' => 'Yes',
 		'Class:ActionWebhookNotification/Attribute:include_delete_button/Value:yes+' => '',
 		'Class:ActionWebhookNotification/Attribute:include_delete_button/Value:no' => 'No',
 		'Class:ActionWebhookNotification/Attribute:include_delete_button/Value:no+' => '',
 		'Class:ActionWebhookNotification/Attribute:include_modify_button' => 'Modify button',
-		'Class:ActionWebhookNotification/Attribute:include_modify_button+' => 'show button for object modification in message?',
+		'Class:ActionWebhookNotification/Attribute:include_modify_button+' => 'Show button for object modification in message?',
 		'Class:ActionWebhookNotification/Attribute:include_modify_button/Value:yes' => 'Yes',
 		'Class:ActionWebhookNotification/Attribute:include_modify_button/Value:yes+' => '',
 		'Class:ActionWebhookNotification/Attribute:include_modify_button/Value:no' => 'No',
 		'Class:ActionWebhookNotification/Attribute:include_modify_button/Value:no+' => '',
 		'Class:ActionWebhookNotification/Attribute:include_otheraction_buttons' => 'Other action buttons',
-		'Class:ActionWebhookNotification/Attribute:include_otheraction_buttons+' => 'show buttons for other actions in message?',
+		'Class:ActionWebhookNotification/Attribute:include_otheraction_buttons+' => 'Show buttons for other actions in message?',
 		'Class:ActionWebhookNotification/Attribute:include_otheraction_buttons/Value:yes' => 'Yes',
 		'Class:ActionWebhookNotification/Attribute:include_otheraction_buttons/Value:yes+' => '',
-		'Class:ActionWebhookNotification/Attribute:include_otheraction_buttons/Value:no' => 'Np',
+		'Class:ActionWebhookNotification/Attribute:include_otheraction_buttons/Value:no' => 'No',
 		'Class:ActionWebhookNotification/Attribute:include_otheraction_buttons/Value:no+' => '',
 		'Class:ActionWebhookNotification/Attribute:include_otheraction_buttons/Attribute:specific' => 'Specific',
 		'Class:ActionWebhookNotification/Attribute:include_otheraction_buttons/Attribute:specific+' => '',
@@ -91,13 +91,15 @@ Dict::Add('EN US', 'English', 'English', array(
 		'ActionWebhookNotification:baseinfo' => 'General information',
 		'ActionWebhookNotification:urlinfo' => 'Webhook Connection',
 		'ActionWebhookNotification:standard' => 'Basis Message',
-		'ActionWebhookNotification:attachment' => 'Attachment (legacy)',
+		'ActionWebhookNotification:attachment' => 'Attachment',
 		'ActionWebhookNotification:additional_fields' => 'Additional fields and buttons',
 
 
 	// Class ActionSlackNotification
 		'Class:ActionSlackNotification' => 'Slack Notification',
 		'Class:ActionSlackNotification+' => 'Send Notification to Slack Webhook',
+		
+		'ActionSlackNotification:attachment' => 'Attachment (legacy)',
 
 
 	// Class ActionRocketChatNotification

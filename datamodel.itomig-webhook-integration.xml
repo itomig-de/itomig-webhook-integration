@@ -195,8 +195,28 @@
             <item id="col:col2">
               <rank>30</rank>
               <items>
-                <item id="fieldset:ActionWebhookNotification:attachment">
+                <item id="fieldset:ActionWebhookNotification:additional_fields">
                   <rank>10</rank>
+                  <items>
+                    <item id="include_list_view">
+                      <rank>10</rank>
+                    </item>
+                    <item id="include_modify_button">
+                      <rank>20</rank>
+                    </item>
+                    <item id="include_delete_button">
+                      <rank>30</rank>
+                    </item>
+                    <item id="include_otheraction_buttons">
+                      <rank>40</rank>
+                    </item>
+                    <item id="specific_action_buttons">
+                      <rank>50</rank>
+                    </item>
+                  </items>
+                </item>
+                <item id="fieldset:ActionWebhookNotification:attachment">
+                  <rank>20</rank>
                   <items>
                     <item id="attachment">
                       <rank>10</rank>
@@ -296,63 +316,71 @@
           <static>false</static>
           <access>protected</access>
           <type>Custom</type>
-          <code><![CDATA[protected function preparePostData($aContextArgs, &$oLog)
-          {
-            $aSlackData = array(
-              'type' => 'mrkdwn',
-              'text' => empty($this->Get("text")) ? "" : $this->prepareTextForSlack(MetaModel::ApplyParams($this->Get("text"), $aContextArgs))
-            );
+          <code><![CDATA[	protected function preparePostData($aContextArgs, &$oLog)
+	{
+		$sText = empty($this->Get("text")) ? "" : $this->prepareTextForSlack(MetaModel::ApplyParams($this->Get("text"), $aContextArgs));
+		$aSlackData = array(
+			'text' => $sText,
+			'blocks' => array(
+				array(
+					'type' => 'section',
+					'text' => array(
+						'type' => 'mrkdwn',
+						'text' => $sText,
+					),
+				),
+			),
+		);
 
-            if (!empty($this->Get('channel'))){
-              $aSlackData['channel'] = $this->Get('channel');
-            }
-            if (!empty($this->Get('bot_alias'))){
-              $aSlackData['username'] = $this->Get('bot_alias');
-            }
-            
+		if (!empty($this->Get('channel'))) {
+			$aSlackData['channel'] = $this->Get('channel');
+		}
+		if (!empty($this->Get('bot_alias'))) {
+			$aSlackData['username'] = $this->Get('bot_alias');
+		}
 
-            $aSlackBlocks = array();
+		// Fields from list view
+		if ($aFields = $this->GetListViewAttributes($aContextArgs)) {
+			$aSlackData['blocks'][] = array(
+				'type' => 'section',
+				'fields' => $aFields,
+			);
+		}
 
-            // Add basic text also as section
-            if($aFields = $this->GetListViewAttributes($aContextArgs)){
-              $aSlackBlocks[] = array(
-                'type' => 'section',
-                'text' => array(
-                  'type' => isset($aSlackData['type']) ? $aSlackData['type'] : 'mrkdwn',
-                  'text' => isset($aSlackData['text']) ? $aSlackData['text'] : ''
-                )
-              );
-            }
+		/**
+		 * Add user info
+		 * @var User $oUser
+		 */
+		$oUser = UserRights::GetUserObject();
+		$oContact = $oUser->GetContactObject() ?: $oUser;
+		$sContactUrl = ApplicationContext::MakeObjectUrl(get_class($oContact), $oContact->GetKey(), null, false);
 
-            // Fields from list view
-            if($aFields = $this->GetListViewAttributes($aContextArgs)){
-              $aSlackBlocks[] = array(
-                'type' => 'section',
-                'fields' => $aFields
-              );
-            }
+		$aSlackData['blocks'][] = array(
+			'type' => 'context',
+			'elements' => array(
+				array(
+					'type' => 'mrkdwn',
+					'text' => sprintf('*User*: <%s|%s>', $sContactUrl, $oUser->GetFriendlyName()),
+				),
+			),
+		);
 
-            // Actions
-            if($aActions = $this->GetActions($aContextArgs)){
-              $aSlackBlocks[] = array(
-                'type' => 'actions',
-                'elements' => $aActions
-              );
-            }
-            if(!empty($aSlackBlocks)){
+		// Actions
+		if ($aActions = $this->GetActions($aContextArgs)) {
+			$aSlackData['blocks'][] = array(
+				'type' => 'actions',
+				'elements' => $aActions,
+			);
+		}
 
-              $aSlackData['blocks'] = $aSlackBlocks;
-            }
-            
-            // Attachments
-            if($aAttachments = $this->GetAttachments($aContextArgs)){
-              $aSlackData['attachments'] = $aAttachments;
-            }
+		// Attachments
+		if ($aAttachments = $this->GetAttachments($aContextArgs)) {
+			$aSlackData['attachments'] = $aAttachments;
+		}
 
-            $oLog->Set ( 'content', "POST Data: \n" . print_r($aSlackData,true) );
-            return $aSlackData;
-          }
-          ]]></code>
+		$oLog->Set('content', "POST Data: \n" . print_r($aSlackData, true));
+		return $aSlackData;
+	}]]></code>
         </method>
         <method id="prepareTextForSlack">
           <static>false</static>
@@ -388,95 +416,104 @@
         </method>
         <method id="GetActions">
           <static>false</static>
-          <access>private</access>
+          <access>protected</access>
           <type>Custom</type>
-          <code><![CDATA[private function GetActions($aContextArgs)
-          {
-            $aActionElements = array();
-            if(!empty($this->Get('include_modify_button')) && $this->Get('include_modify_button') == 'yes'){
-              $aActionElements[] = array(
-                "type" => "button",
-                "text" => array(
-                  "type" => "plain_text",
-                  "text" => "Modify"
-                ),
-                "url" => "http://localhost/itop1/pages/UI.php?operation=modify&class=UserRequest&id=1"
-              );
-            }
+          <code><![CDATA[	protected function GetActions($aContextArgs)
+	{
+		$aActionElements = array();
+		/** @var cmdbAbstractObject $oObj */
+		$oObj = $aContextArgs['this->object()'];
+		$sClass = get_class($oObj);
+		$iKey = $oObj->GetKey();
+		$sPage = DBObject::ComputeStandardUIPage($sClass);
+		$sAbsoluteUrl = utils::GetAbsoluteUrlAppRoot();
 
-            if(!empty($this->Get('include_delete_button')) && $this->Get('include_delete_button') == 'yes'){
-              $aActionElements[] = array(
-                "type" => "button",
-                "text" => array(
-                  "type" => "plain_text",
-                  "text" => "Delete"
-                ),
-                "url" => "http://localhost/itop1/pages/UI.php?operation=delete&class=UserRequest&id=1"
-              );
-            }
+		if ($this->Get('include_modify_button') == 'yes') {
+			$aActionElements[] = array(
+				'type' => 'button',
+				'text' => array(
+					'type' => 'plain_text',
+					'text' => Dict::S('UI:Menu:Modify'),
+				),
+				'action_id' => 'modify',
+				'url' => sprintf('%spages/%s?operation=modify&class=%s&id=%d', $sAbsoluteUrl, $sPage, $sClass, $iKey),
+				'style' => 'primary',
+			);
+		}
 
-            if(!empty($this->Get('include_otheraction_buttons'))){
-              switch ($this->Get('include_otheraction_buttons')) {
-                case 'yes':
-                  $aActionElements[] = array(
-                    "type" => "button",
-                    "text" => array(
-                      "type" => "plain_text",
-                      "text" => "Assign"
-                    ),
-                    "url" => "http://localhost/itop1/pages/UI.php?operation=stimulus&stimulus=ev_assign&class=UserRequest&id=1"
-                  );
-                  $aActionElements[] = array(
-                    "type" => "button",
-                    "text" => array(
-                      "type" => "plain_text",
-                      "text" => "Pending"
-                    ),
-                    "url" => "http://localhost/itop1/pages/UI.php?operation=stimulus&stimulus=ev_pending&class=UserRequest&id=1"
-                  );
-                  break;
+		if ($this->Get('include_otheraction_buttons') != 'no')
+		{
+			$aTransitions = $oObj->EnumTransitions();
+			$aStimuli = MetaModel::EnumStimuli($sClass);
+			if ($this->Get('include_otheraction_buttons') == 'yes')
+			{
+				$aAllowedStimuli = array_keys($aTransitions);
+			}
+			else
+			{
+				$aAllowedStimuli = preg_split('/\s*,\s*/', $this->Get('specific_action_buttons'));
+			}
 
-                case 'specific':
-                  $aActionElements[] = array(
-                    "type" => "button",
-                    "text" => array(
-                      "type" => "plain_text",
-                      "text" => "Assign"
-                    ),
-                    "url" => "http://localhost/itop1/pages/UI.php?operation=stimulus&stimulus=ev_assign&class=UserRequest&id=1"
-                  );
-                  break;
-              }
-            }
-            return $aActionElements;
-          }
-          ]]></code>
+			foreach ($aAllowedStimuli as $sStimulusCode)
+			{
+				if (isset($aTransitions[$sStimulusCode]) && is_a($aStimuli[$sStimulusCode], StimulusUserAction::class))
+				{
+					$aActionElements[] = array(
+						'type' => 'button',
+						'text' => array(
+							'type' => 'plain_text',
+							'text' => $aStimuli[$sStimulusCode]->GetLabel(),
+						),
+						'action_id' => $sStimulusCode,
+						'url' => sprintf('%spages/%s?operation=stimulus&stimulus=%s&class=%s&id=%d', $sAbsoluteUrl, $sPage, $sStimulusCode, $sClass, $iKey),
+					);
+				}
+			}
+		}
+
+		if ($this->Get('include_delete_button') == 'yes') {
+			$aActionElements[] = array(
+				'type' => 'button',
+				'text' => array(
+					'type' => 'plain_text',
+					'text' => Dict::S('UI:Menu:Delete'),
+				),
+				'action_id' => 'delete',
+				'url' => sprintf('%spages/%s?operation=delete&class=%s&id=%d', $sAbsoluteUrl, $sPage, $sClass, $iKey),
+				'style' => 'danger',
+			);
+		}
+
+		return $aActionElements;
+	}]]></code>
         </method>
         <method id="GetListViewAttributes">
           <static>false</static>
-          <access>private</access>
+          <access>protected</access>
           <type>Custom</type>
-          <code><![CDATA[private function GetListViewAttributes($aContextArgs)
-          {
-            if(!empty($this->Get('include_list_view')) && $this->Get('include_list_view') == 'yes'){
-              return array(
-                0 => array(
-                  "type" => "mrkdwn",
-                  "text" => "*User Request*\n<http://localhost/itop1/pages/UI.php?operation=details&class=UserRequest&id=619&|R-000619>"
-                ),
-                1 => array(
-                  "type" => "mrkdwn",
-                  "text" => "*Title*\nTest Title"
-                ),
-                2 => array(
-                  "type" => "mrkdwn",
-                  "text" => "*Organization*\n<http://localhost/itop1/pages/UI.php?operation=details&class=Organization&id=2&|Demo>"
-                )
-              );
-            }
-            return false;
-          }
-          ]]></code>
+          <code><![CDATA[	protected function GetListViewAttributes($aContextArgs)
+	{
+		if ($this->Get('include_list_view') == 'no') return;
+		$aFields = array();
+
+		/** @var CMDBObject $oObj */
+		$oObj = $aContextArgs['this->object()'];
+		$sClass = get_class($oObj);
+
+		$aListItems = MetaModel::GetZListItems($sClass, 'slack');
+		if (empty($aListItems)) $aListItems = MetaModel::GetZListItems($sClass, 'list');
+
+		foreach($aListItems as $sAttCode)
+		{
+			$oAttDef = MetaModel::GetAttributeDef($sClass, $sAttCode);
+			$aFields[] = array(
+				'type' => 'mrkdwn',
+				'text' => sprintf("*%s*\n%s", $oAttDef->GetLabel(), $this->prepareTextForSlack($oObj->GetAsHtml($sAttCode))),
+			);
+		}
+
+		return $aFields;
+	}]]></code>
         </method>
         <method id="GetAttachments">
           <static>false</static>
@@ -587,7 +624,7 @@
                     </item>
                   </items>
                 </item>
-                <item id="fieldset:ActionWebhookNotification:attachment">
+                <item id="fieldset:ActionSlackNotification:attachment">
                   <rank>20</rank>
                   <items>
                     <item id="attachment">
@@ -698,9 +735,25 @@
             if (isset ( $aPostParams_raw['sBotAlias'] )){
               $rocketData['username'] = $aPostParams_raw['sBotAlias'];
             }
+
+            // Fields from list view
+			if ($aFields = $this->GetListViewAttributes($aContextArgs)) {
+				$rocketData['attachments'][] = array(
+					'fields' => $aFields,
+				);
+            }
+
             if (isset ( $aPostParams_raw['sSendAttachment'] ) 
               && ($aPostParams_raw['sSendAttachment'] === 'yes' || $aPostParams_raw['sSendAttachment'] === 'Ja')){
-              $att_params = array();
+              /** @var User $oUser */
+              $oUser = UserRights::GetUserObject();
+              $oContact = $oUser->GetContactObject() ?: $oUser;
+              $att_params = array(
+              	'author_name' => $oUser->GetFriendlyName(),
+              	'author_link' => ApplicationContext::MakeObjectUrl(get_class($oContact), $oContact->GetKey(), null, false),
+              	'author_icon' => $oContact->GetIcon(false),
+              	'ts' => date(DATE_W3C),
+			  );
               if (isset ( $aPostParams_raw['sAttTitle'] )){
                 $att_params['title'] = $aPostParams_raw['sAttTitle'];
               }
@@ -726,6 +779,35 @@
           }
           ]]></code>
         </method>
+        <method id="GetListViewAttributes">
+          <static>false</static>
+          <access>protected</access>
+          <type>Custom</type>
+          <code><![CDATA[	protected function GetListViewAttributes($aContextArgs)
+	{
+		if ($this->Get('include_list_view') == 'no') return;
+		$aFields = array();
+
+		/** @var CMDBObject $oObj */
+		$oObj = $aContextArgs['this->object()'];
+		$sClass = get_class($oObj);
+
+		$aListItems = MetaModel::GetZListItems($sClass, 'rocket.chat');
+		if (empty($aListItems)) $aListItems = MetaModel::GetZListItems($sClass, 'list');
+
+		foreach($aListItems as $sAttCode)
+		{
+			$oAttDef = MetaModel::GetAttributeDef($sClass, $sAttCode);
+			$aFields[] = array(
+				'short' => true,
+				'title' => $oAttDef->GetLabel(),
+				'value' => $this->prepareTextForRocket($oObj->GetAsHtml($sAttCode)),
+			);
+		}
+
+		return $aFields;
+	}]]></code>
+        </method>
         <method id="prepareTextForRocket">
           <static>false</static>
           <access>private</access>
@@ -734,19 +816,22 @@
           {
             //convert html to rocket markdown
             if(!empty($sText)){
-              $sText = strip_tags($sText, '<h1><h2><h3><br><strong><em><del><li><code><pre><a></a>');
+              $sText = strip_tags($sText, '<h1><h2><h3><br><strong><b><em><i><del><s><li><code><pre><a>');
                   $sText = str_replace(array('<br />', '<br>'), "\n", $sText);
                   $sText = str_replace(array('<h1>', '</h1>'), array('**', '**'), $sText);
                   $sText = str_replace(array('<h2>', '</h2>'), array('**', '**'), $sText);
                   $sText = str_replace(array('<h3>', '</h3>'), array('**', '**'), $sText);
-                  $sText = str_replace(array('<strong>', '</strong>'), array('**', '**'), $sText);
-                  $sText = str_replace(array('<em>', '</em>'), array('__', '__'), $sText);
+                  $sText = str_replace(array('<strong>', '</strong>'), array('*', '*'), $sText);
+                  $sText = str_replace(array('<b>', '</b>'), array('*', '*'), $sText);
+                  $sText = str_replace(array('<em>', '</em>'), array('_', '_'), $sText);
+                  $sText = str_replace(array('<i>', '</i>'), array('_', '_'), $sText);
                   $sText = str_replace(array('<del>', '</del>'), array('~', '~'), $sText);
-                  $sText = str_replace(array('<li>', '</li>'), array('* ', ''), $sText);
+                  $sText = str_replace(array('<s>', '</s>'), array('~', '~'), $sText);
+                  $sText = str_replace(array('<li>', '</li>'), array('• ', ''), $sText);
                   $sText = str_replace(array('<code>', '</code>'), array('`', '`'), $sText);
-                  $sText = str_replace(array('<pre>', '</pre>'), array('`', '`'), $sText);
+                  $sText = str_replace(array('<pre>', '</pre>'), array('```', '```'), $sText);
 
-                  preg_match_all('/<a href=\"(.*?)\">(.*?)<\/a>/i', $sText, $res);
+                  preg_match_all('/<\s*a.*?href\s*=\s*(?:\"|\')(.*?)(?:\"|\')[^>]*>(.*?)<\s*?\/\s*?a\s*?>/i', $sText, $res);
                   for($i = 0; $i < count($res[0]); $i++) {
                       $sText = str_replace($res[0][$i], '['.$res[2][$i].']('.$res[1][$i].')', $sText);
                   }
@@ -809,8 +894,16 @@
             <item id="col:col2">
               <rank>30</rank>
               <items>
-                <item id="fieldset:ActionWebhookNotification:attachment">
+                <item id="fieldset:ActionWebhookNotification:additional_fields">
                   <rank>10</rank>
+                  <items>
+                    <item id="include_list_view">
+                      <rank>10</rank>
+                    </item>
+                  </items>
+                </item>
+                <item id="fieldset:ActionWebhookNotification:attachment">
+                  <rank>20</rank>
                   <items>
                     <item id="attachment">
                       <rank>10</rank>
