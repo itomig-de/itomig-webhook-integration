@@ -18,7 +18,7 @@ By default the only available kind of action consists in sending email. This ito
 | 17.4.0			 | 2017-12-20    | Initial release.	  | 
 | 18.1.0			 | 2018-02-16    | Integration for Rocket Chat	  | 
 | 18.3.0			 | 2018-02-16    | Code Refactoring to make extension more flexible. SUpport of Async notifications	  | 
-| 19.3.0			 | 2019-08-xx    | Integrate more information from iTop direct in your Notification. Thanks to @Hipska for contribution. |
+| 19.3.0			 | 2019-09-30    | Integrate more information from iTop direct in your Notification. Thanks to @Hipska for contribution. |
 
 ## Limitations
 
