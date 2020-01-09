@@ -99,8 +99,12 @@ Dict::Add('FR FR', 'French', 'Français', array(
 		'Class:ActionSlackNotification' => 'Notification Slack',
 		'Class:ActionSlackNotification+' => 'Envoyer une notification à Slack Webhook',
 		
+		'Class:ActionSlackNotification/Attribute:channel' => 'Salon ou utilisateur (Legacy)~~',
+		'Class:ActionSlackNotification/Attribute:channel+' => 'Utiliser #salon ou @utilisateur (not longer possible to configure at runtime with slack apps)~~',
+		'Class:ActionSlackNotification/Attribute:bot_alias' => 'Nom de l\'application (Legacy)',
+		'Class:ActionSlackNotification/Attribute:bot_alias+' => 'Nom personnalisé de l\'application (not longer possible to configure at runtime with slack apps)~~',
 		'ActionSlackNotification:attachment' => 'Pièce jointe (legacy)~~',
-
+		
 
 	// Class ActionRocketChatNotification
 		'Class:ActionRocketChatNotification' => 'Notification Rocket Chat',
