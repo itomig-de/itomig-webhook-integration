@@ -99,6 +99,10 @@ Dict::Add('EN US', 'English', 'English', array(
 		'Class:ActionSlackNotification' => 'Slack Notification',
 		'Class:ActionSlackNotification+' => 'Send Notification to Slack Webhook',
 		
+		'Class:ActionSlackNotification/Attribute:channel' => 'Channel or Person (Legacy)',
+		'Class:ActionSlackNotification/Attribute:channel+' => 'Using #channel or @person (not longer possible to configure at runtime with slack apps)',
+		'Class:ActionSlackNotification/Attribute:bot_alias' => 'App name (Legacy)',
+		'Class:ActionSlackNotification/Attribute:bot_alias+' => 'Custom sender name (not longer possible to configure at runtime with slack apps)',
 		'ActionSlackNotification:attachment' => 'Attachment (legacy)',
 
 
