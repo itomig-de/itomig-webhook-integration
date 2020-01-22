@@ -98,7 +98,11 @@ Dict::Add('DE DE', 'German', 'Deutsch', array(
 	// Class ActionSlackNotification
 		'Class:ActionSlackNotification' => 'Slack Benachrichtugung',
 		'Class:ActionSlackNotification+' => 'Sende Benachrichtugung an einen Slack Webhook',
-	
+
+		'Class:ActionSlackNotification/Attribute:channel' => 'Channel oder Person (Legacy)',
+		'Class:ActionSlackNotification/Attribute:channel+' => 'Using #channel or @person (Nicht mehr möglich mit Slack Apps)',
+		'Class:ActionSlackNotification/Attribute:bot_alias' => 'App name (Legacy)',
+		'Class:ActionSlackNotification/Attribute:bot_alias+' => 'Anzeigename der App (Nicht mehr möglich mit Slack Apps)',
 		'ActionSlackNotification:attachment' => 'Attachment (Legacy)',
 
 
