@@ -13,13 +13,13 @@ By default the only available kind of action consists in sending email. This ito
 
 ## Revision History
 
-| Version		 | Release Date  | Comments	     | 
-| ------------- | ------------- | -------------   |
-| 17.4.0			 | 2017-12-20    | Initial release.	  | 
-| 18.1.0			 | 2018-02-16    | Integration for Rocket Chat	  | 
-| 18.3.0			 | 2018-02-16    | Code Refactoring to make extension more flexible. SUpport of Async notifications	  | 
-| 19.3.0			 | 2019-09-30    | Integrate more information from iTop direct in your Notification. Thanks to @Hipska for contribution. |
-| 19.3.1			 | 2020-01-10    | Add some missing translations |
+| Version  | Release Date | Comments         | 
+| -------- | ------------ | ---------------- |
+| 17.4.0   | 2017-12-20   | Initial release. | 
+| 18.1.0   | 2018-02-16   | Integration for Rocket Chat. | 
+| 18.3.0   | 2018-02-16   | Code Refactoring to make extension more flexible. Support of Async notifications. | 
+| 19.3.0   | 2019-09-30   | Integrate more information from iTop direct in your Notification. Thanks to @Hipska for contribution. |
+| 19.3.1   | 2020-01-10   | Add some missing translations |
 
 ## Limitations
 
@@ -38,15 +38,14 @@ Check Webhook Integration (ITOMIG GmbH) in the list of extensions at the end of 
 
 ## Configuration
 
-| Parameter				| Type 			 | Description	  | Default Value	|
-| ------------- 		| ------------- | ------------- | ------------- |
-| certificate_check	| boolean 	| Whether to check the ssl certificate of slack server.											| `true` 	|
-| certificate_file 	| string 	| Path to an custom certificate file. 																	| `''` 		|
-| timeout 				| Integer 	| Determine how many seconds iTop shall wait for a response of Slack							| `5` 		|
-| asynchronous 		| boolean 	| Whether to send notifications asynchronous (cronjob must be configured in this case)	| `false` 	|
+| Parameter         | Type    | Description | Default value |
+| ----------------- | ------- | ----------- | ------------- |
+| certificate_check | boolean | Whether to check the ssl certificate of slack server. | `true` |
+| certificate_file  | string  | Path to an custom certificate file. | `''` |
+| timeout           | integer | Determine how many seconds iTop shall wait for a response of Slack. | `5` |
+| asynchronous      | boolean | Whether to send notifications asynchronous (cronjob must be configured in this case). | `false` |
 
 ## Usage
 
 Slack Notification is a special type of Action. It is based on Action/Triggers. The usage is quite similar to an email notification.
 To view and configure your Slack or RocketChat notifications use the link “Notifications” in the “Admin tools” menu and click on the tab “Actions”.
-
