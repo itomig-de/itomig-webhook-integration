@@ -353,10 +353,7 @@
 
 
     if ($this->Get('include_userinfo') == 'yes') {
-      /**
-       * Add user info
-       * @var User $oUser
-       */
+      // Add user info
       $oUser = UserRights::GetUserObject();
       $oContact = $oUser->GetContactObject() ?: $oUser;
       $sContactUrl = ApplicationContext::MakeObjectUrl(get_class($oContact), $oContact->GetKey(), null, false);
