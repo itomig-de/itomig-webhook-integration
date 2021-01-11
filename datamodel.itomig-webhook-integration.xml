@@ -325,16 +325,18 @@
     $sText = empty($this->Get("text")) ? "" : $this->prepareTextForSlack(MetaModel::ApplyParams($this->Get("text"), $aContextArgs));
     $aSlackData = array(
       'text' => $sText,
-      'blocks' => array(
-        array(
-          'type' => 'section',
-          'text' => array(
-            'type' => 'mrkdwn',
-            'text' => $sText,
-          ),
-        ),
-      ),
+      'blocks' => array(),
     );
+
+    if (!empty($sText)) {
+      $aSlackData['blocks'][] = array(
+        'type' => 'section',
+        'text' => array(
+          'type' => 'mrkdwn',
+          'text' => $sText,
+        ),
+      );
+    }
 
     if (!empty($this->Get('channel'))) {
       $aSlackData['channel'] = $this->Get('channel');
