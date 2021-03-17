@@ -20,6 +20,7 @@ By default the only available kind of action consists in sending email. This ito
 | 18.3.0   | 2018-02-16   | Code Refactoring to make extension more flexible. Support of Async notifications. | 
 | 19.3.0   | 2019-09-30   | Integrate more information from iTop direct in your Notification. Thanks to @Hipska for contribution. |
 | 19.3.1   | 2020-01-10   | Add some missing translations |
+| 21.1.0   | 2021-03-17   | Fix invalid Block for Slack notifications and support more cases for iTop editor. Thanks to @Hipska for contribution. |
 
 ## Limitations
 
