@@ -24,6 +24,8 @@ By default the only available kind of action consists in sending email. This ito
 
 ## Limitations
 
+# This extension has become obsolete with version 3.0. To upgrade to 3.0, you need to uninstall this extension.
+
 While iTop works with HTML to format messages, Slack uses an own markdown like language. This extensions transform HTML to markdown. But due to the limitations of the slack markdown currently images will not send to Slack and headings will only be displayed as bold.
 
 ## Requirements
